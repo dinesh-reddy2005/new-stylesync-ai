@@ -77,10 +77,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "description", content: "AI-powered fashion assistant for virtual try-on, smart outfit recommendations, and body-fit analysis." },
       { name: "author", content: "StyleSync AI" },
       { property: "og:title", content: "StyleSync AI — Your Personal AI Stylist" },
-      { property: "og:description", content: "Virtual try-on, smart outfit recommendations, and body-fit analysis powered by AI." },
+      { property: "og:description", content: "AI-powered fashion assistant for virtual try-on, smart outfit recommendations, and body-fit analysis." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "StyleSync AI — Your Personal AI Stylist" },
+      { name: "twitter:description", content: "AI-powered fashion assistant for virtual try-on, smart outfit recommendations, and body-fit analysis." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/a91c964e-0ece-4717-962f-eae9fc8b6797/id-preview-637d28ea--95f501ee-2457-4ee3-9ec3-3e57446f16cf.lovable.app-1779789352571.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/a91c964e-0ece-4717-962f-eae9fc8b6797/id-preview-637d28ea--95f501ee-2457-4ee3-9ec3-3e57446f16cf.lovable.app-1779789352571.png" },
     ],
     links: [
       {
