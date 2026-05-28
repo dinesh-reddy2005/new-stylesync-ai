@@ -1,7 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Sparkles, Camera, Wand2, Shirt, Ruler, TrendingUp, ArrowRight, Star } from "lucide-react";
+import { Sparkles, Camera, Wand2, Shirt, Ruler, TrendingUp, ArrowRight, Star, ArrowUpRight } from "lucide-react";
+import streetwearImg from "@/assets/style-streetwear.jpg";
+import minimalImg from "@/assets/style-minimal.jpg";
+import y2kImg from "@/assets/style-y2k.jpg";
+import formalImg from "@/assets/style-formal.jpg";
+import casualImg from "@/assets/style-casual.jpg";
+import aestheticImg from "@/assets/style-aesthetic.jpg";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -14,6 +20,15 @@ const features = [
   { icon: Shirt, title: "Wardrobe Matching", desc: "Mix and match what you already own with new trending pieces." },
   { icon: TrendingUp, title: "Trend Forecasts", desc: "Stay ahead with curated drops and runway-to-real-life styling." },
   { icon: Sparkles, title: "Confidence Score", desc: "Every outfit gets a confidence rating before you check out." },
+];
+
+const styleCards = [
+  { title: "Streetwear", desc: "Bold urban layers with neon attitude.", image: streetwearImg, score: 96 },
+  { title: "Minimal", desc: "Clean lines, neutral tones, quiet luxury.", image: minimalImg, score: 94 },
+  { title: "Y2K", desc: "Metallic shine and futurist 2000s flair.", image: y2kImg, score: 92 },
+  { title: "Formal", desc: "Sharp tailoring for elevated moments.", image: formalImg, score: 95 },
+  { title: "Casual", desc: "Effortless everyday denim and basics.", image: casualImg, score: 90 },
+  { title: "Aesthetic", desc: "Dreamy ethereal layers and soft tones.", image: aestheticImg, score: 93 },
 ];
 
 function Index() {
@@ -45,13 +60,24 @@ function Index() {
         <div className="relative mx-auto mt-16 max-w-4xl">
           <div className="glass-strong neon-border animate-float rounded-3xl p-1">
             <div className="grid grid-cols-2 gap-3 rounded-[22px] bg-black/40 p-4 sm:grid-cols-3">
-              {["Streetwear", "Minimal", "Y2K", "Workwear", "Athleisure", "Evening"].map((s, i) => (
-                <div key={s} className="group relative aspect-[3/4] overflow-hidden rounded-2xl bg-gradient-to-br from-white/5 to-white/0 border border-white/10">
-                  <div className="absolute inset-0 bg-gradient-to-br opacity-60"
-                    style={{ background: `linear-gradient(135deg, oklch(0.4 0.25 ${280 + i * 15}), oklch(0.25 0.15 ${240 + i * 20}))` }} />
-                  <div className="shimmer absolute inset-0 opacity-30" />
-                  <div className="absolute bottom-3 left-3 text-xs font-medium">{s}</div>
-                  <div className="absolute top-3 right-3 rounded-full glass px-2 py-0.5 text-[10px]">AI Pick</div>
+              {styleCards.map((s) => (
+                <div key={s.title} className="group relative aspect-[3/4] overflow-hidden rounded-2xl border border-white/10">
+                  <img
+                    src={s.image}
+                    alt={`${s.title} outfit`}
+                    width={768}
+                    height={960}
+                    loading="lazy"
+                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+                  />
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                  <div className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full glass px-2 py-0.5 text-[10px]">
+                    <Sparkles className="h-3 w-3 text-fuchsia-300" /> AI Pick
+                  </div>
+                  <div className="absolute bottom-3 left-3 text-left">
+                    <div className="text-sm font-semibold">{s.title}</div>
+                    <div className="hidden text-[10px] text-white/70 sm:block">{s.desc}</div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -82,30 +108,45 @@ function Index() {
       <section className="py-16">
         <div className="flex items-end justify-between">
           <div>
-            <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">Trending this week</h2>
+            <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">Explore styles</h2>
             <p className="mt-2 text-sm text-muted-foreground">Curated by AI from millions of looks.</p>
           </div>
           <Link to="/recommendations" className="text-sm text-fuchsia-300 hover:underline">See all →</Link>
         </div>
-        <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-          {[
-            { t: "Quiet Luxury", h: 320 },
-            { t: "Neo-Tokyo", h: 270 },
-            { t: "Coastal Linen", h: 200 },
-            { t: "Cyber Athleisure", h: 290 },
-          ].map((item, i) => (
-            <div key={item.t} className="glass overflow-hidden rounded-2xl border-white/10">
-              <div className="relative aspect-[4/5]"
-                style={{ background: `linear-gradient(160deg, oklch(0.35 0.22 ${item.h}), oklch(0.18 0.1 ${item.h + 40}))` }}>
-                <div className="absolute top-2 left-2 flex items-center gap-1 rounded-full glass px-2 py-0.5 text-[10px]">
-                  <Star className="h-3 w-3 text-yellow-300" /> {(4.6 + i * 0.1).toFixed(1)}
+        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {styleCards.map((s) => (
+            <Card key={s.title} className="glass group overflow-hidden border-white/10 transition hover:border-fuchsia-500/40 hover:-translate-y-1">
+              <div className="relative aspect-[4/5] overflow-hidden">
+                <img
+                  src={s.image}
+                  alt={`${s.title} style`}
+                  width={768}
+                  height={960}
+                  loading="lazy"
+                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+                />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                <div className="absolute top-2 left-2 z-10 flex items-center gap-1 rounded-full glass px-2 py-0.5 text-[10px]">
+                  <Sparkles className="h-3 w-3 text-fuchsia-300" /> AI Pick
+                </div>
+                <div className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full glass px-2 py-0.5 text-[10px]">
+                  <Star className="h-3 w-3 text-yellow-300" /> {s.score}
                 </div>
               </div>
-              <div className="p-3">
-                <div className="text-sm font-medium">{item.t}</div>
-                <div className="text-xs text-muted-foreground">AI confidence {88 + i * 2}%</div>
+              <div className="flex items-center justify-between p-4">
+                <div>
+                  <div className="text-sm font-semibold">{s.title}</div>
+                  <div className="text-xs text-muted-foreground">{s.desc}</div>
+                </div>
+                <Link
+                  to="/recommendations"
+                  aria-label={`Explore ${s.title}`}
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-fuchsia-500 to-blue-500 text-white transition group-hover:scale-110"
+                >
+                  <ArrowUpRight className="h-4 w-4" />
+                </Link>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       </section>
