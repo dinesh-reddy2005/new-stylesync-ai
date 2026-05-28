@@ -1,6 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { Sparkles } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import { Button } from "@/components/ui/button";
 
 const links = [
   { to: "/", label: "Home" },
@@ -10,6 +12,7 @@ const links = [
 
 export function SiteNav() {
   const [open, setOpen] = useState(false);
+  const { session, loading } = useAuth();
   return (
     <header className="sticky top-0 z-50 w-full">
       <div className="mx-auto mt-3 max-w-6xl px-4">
@@ -33,6 +36,17 @@ export function SiteNav() {
                 {l.label}
               </Link>
             ))}
+            {!loading && (
+              session ? (
+                <Button asChild size="sm" className="ml-2 btn-glow bg-gradient-to-r from-fuchsia-500 to-blue-500 text-white hover:opacity-90">
+                  <Link to="/dashboard">Dashboard</Link>
+                </Button>
+              ) : (
+                <Button asChild size="sm" variant="outline" className="ml-2 glass border-white/10 hover:bg-white/5">
+                  <Link to="/login">Sign in</Link>
+                </Button>
+              )
+            )}
           </nav>
           <button
             onClick={() => setOpen((v) => !v)}
