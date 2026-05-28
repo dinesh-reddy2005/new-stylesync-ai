@@ -4,6 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Wand2, Star, Sparkles } from "lucide-react";
+import outfit1 from "@/assets/outfit-1.jpg";
+import outfit2 from "@/assets/outfit-2.jpg";
+import outfit3 from "@/assets/outfit-3.jpg";
+import outfit4 from "@/assets/outfit-4.jpg";
 
 export const Route = createFileRoute("/recommendations")({
   component: Recs,
@@ -17,7 +21,7 @@ type Outfit = {
   name: string;
   pieces: string[];
   score: number;
-  hue: number;
+  image: string;
   tags: string[];
 };
 
@@ -27,28 +31,28 @@ function generate(occasion: string, weather: string, style: string): Outfit[] {
       name: `${style} ${occasion} Look`,
       pieces: ["Oversized blazer", "Cropped tee", "Wide-leg trousers", "Chunky loafers"],
       score: 94,
-      hue: 300,
+      image: outfit1,
       tags: [occasion, weather, style],
     },
     {
       name: `Neo ${occasion} Edit`,
       pieces: ["Sheer overlay", "High-waist denim", "Metallic belt", "Platform boots"],
       score: 91,
-      hue: 260,
+      image: outfit2,
       tags: [occasion, style, "Trending"],
     },
     {
       name: `${weather} ${style} Combo`,
       pieces: ["Knit cardigan", "Pleated skirt", "Knee boots", "Crossbody bag"],
       score: 88,
-      hue: 200,
+      image: outfit3,
       tags: [weather, style],
     },
     {
       name: `Statement ${occasion}`,
       pieces: ["Satin shirt", "Tailored shorts", "Sheer tights", "Pointed heels"],
       score: 86,
-      hue: 340,
+      image: outfit4,
       tags: [occasion, "Statement"],
     },
   ];
@@ -91,16 +95,21 @@ function Recs() {
       {/* Results */}
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {results.map((o, i) => (
-          <Card key={o.name + i + seed} className="glass overflow-hidden border-white/10 transition hover:border-fuchsia-500/30">
-            <div
-              className="relative aspect-[4/5]"
-              style={{ background: `linear-gradient(160deg, oklch(0.4 0.22 ${o.hue + i * 10}), oklch(0.18 0.1 ${o.hue + 60}))` }}
-            >
-              <div className="shimmer absolute inset-0 opacity-25" />
-              <div className="absolute top-2 left-2 flex items-center gap-1 rounded-full glass px-2 py-0.5 text-[10px]">
+          <Card key={o.name + i + seed} className="glass group overflow-hidden border-white/10 transition hover:border-fuchsia-500/40 hover:-translate-y-1">
+            <div className="relative aspect-[4/5] overflow-hidden">
+              <img
+                src={o.image}
+                alt={o.name}
+                width={768}
+                height={960}
+                loading="lazy"
+                className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+              />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+              <div className="absolute top-2 left-2 z-10 flex items-center gap-1 rounded-full glass px-2 py-0.5 text-[10px]">
                 <Sparkles className="h-3 w-3 text-fuchsia-300" /> AI Pick
               </div>
-              <div className="absolute top-2 right-2 flex items-center gap-1 rounded-full glass px-2 py-0.5 text-[10px]">
+              <div className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full glass px-2 py-0.5 text-[10px]">
                 <Star className="h-3 w-3 text-yellow-300" /> {o.score}
               </div>
             </div>
