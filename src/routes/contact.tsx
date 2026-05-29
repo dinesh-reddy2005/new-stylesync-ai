@@ -1,7 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,8 +13,6 @@ export const Route = createFileRoute("/contact")({
 
 function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -24,48 +20,9 @@ function ContactPage() {
     message: "",
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (submitting) return;
-    setError(null);
-
-    const name = formData.name.trim();
-    const email = formData.email.trim();
-    const phone = formData.phone.trim();
-    const message = formData.message.trim();
-
-    if (!name || !email || !message) {
-      setError("Please fill in name, email, and message.");
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError("Please enter a valid email address.");
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const res = await fetch("/api/contact", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, phone, message }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error || "Something went wrong. Please try again.");
-      }
-      setFormData({ name: "", email: "", phone: "", message: "" });
-      setSubmitted(true);
-      toast.success("Message sent!", {
-        description: "Thanks — we'll get back to you within 24 hours.",
-      });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to send message.";
-      setError(msg);
-      toast.error("Failed to send", { description: msg });
-    } finally {
-      setSubmitting(false);
-    }
+    setSubmitted(true);
   };
 
   return (
@@ -160,8 +117,6 @@ function ContactPage() {
                     type="text"
                     placeholder="Jane Doe"
                     required
-                    disabled={submitting}
-                    maxLength={200}
                     value={formData.name}
                     onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
                     className="glass border-white/10 bg-white/5 focus-visible:ring-fuchsia-500/50"
@@ -174,8 +129,6 @@ function ContactPage() {
                     type="email"
                     placeholder="jane@example.com"
                     required
-                    disabled={submitting}
-                    maxLength={320}
                     value={formData.email}
                     onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))}
                     className="glass border-white/10 bg-white/5 focus-visible:ring-fuchsia-500/50"
@@ -187,8 +140,6 @@ function ContactPage() {
                     id="phone"
                     type="tel"
                     placeholder="+1 (555) 000-0000"
-                    disabled={submitting}
-                    maxLength={40}
                     value={formData.phone}
                     onChange={(e) => setFormData((p) => ({ ...p, phone: e.target.value }))}
                     className="glass border-white/10 bg-white/5 focus-visible:ring-fuchsia-500/50"
@@ -201,30 +152,16 @@ function ContactPage() {
                     placeholder="Tell us what you need..."
                     required
                     rows={5}
-                    disabled={submitting}
-                    maxLength={5000}
                     value={formData.message}
                     onChange={(e) => setFormData((p) => ({ ...p, message: e.target.value }))}
                     className="glass border-white/10 bg-white/5 focus-visible:ring-fuchsia-500/50 resize-none"
                   />
                 </div>
-                {error && (
-                  <p className="text-sm text-destructive" role="alert">{error}</p>
-                )}
                 <Button
                   type="submit"
-                  disabled={submitting}
                   className="w-full btn-glow bg-gradient-to-r from-fuchsia-500 to-blue-500 text-white hover:opacity-90"
                 >
-                  {submitting ? (
-                    <>
-                      Sending… <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-                    </>
-                  ) : (
-                    <>
-                      Send Message <Send className="ml-2 h-4 w-4" />
-                    </>
-                  )}
+                  Send Message <Send className="ml-2 h-4 w-4" />
                 </Button>
               </form>
             )}
