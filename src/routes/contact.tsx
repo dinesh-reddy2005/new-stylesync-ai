@@ -1,28 +1,66 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
+import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Mail, Phone, MapPin, Send, CheckCircle, ArrowRight, Sparkles } from "lucide-react";
+import { Mail, Phone, MapPin, Send, CheckCircle, ArrowRight, Sparkles, Loader2 } from "lucide-react";
+import { submitContact } from "@/lib/contact.functions";
 
 export const Route = createFileRoute("/contact")({
   component: ContactPage,
 });
 
+const formSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(100),
+  email: z.string().trim().email("Enter a valid email").max(255),
+  phone: z.string().trim().regex(/^\d{10}$/, "Phone must be exactly 10 digits"),
+  message: z.string().trim().min(1, "Message is required").max(2000),
+});
+
+type FieldErrors = Partial<Record<"name" | "email" | "phone" | "message", string>>;
+
 function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [errors, setErrors] = useState<FieldErrors>({});
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
     message: "",
   });
+  const submit = useServerFn(submitContact);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    const parsed = formSchema.safeParse(formData);
+    if (!parsed.success) {
+      const fieldErrors: FieldErrors = {};
+      for (const issue of parsed.error.issues) {
+        const key = issue.path[0] as keyof FieldErrors;
+        if (key && !fieldErrors[key]) fieldErrors[key] = issue.message;
+      }
+      setErrors(fieldErrors);
+      return;
+    }
+    setErrors({});
+    setSubmitting(true);
+    try {
+      await submit({ data: parsed.data });
+      toast.success("Thanks! We'll get back to you within 24 hours.");
+      setFormData({ name: "", email: "", phone: "", message: "" });
+      setSubmitted(true);
+    } catch (err) {
+      console.error(err);
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -116,11 +154,11 @@ function ContactPage() {
                     id="name"
                     type="text"
                     placeholder="Jane Doe"
-                    required
                     value={formData.name}
                     onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
                     className="glass border-white/10 bg-white/5 focus-visible:ring-fuchsia-500/50"
                   />
+                  {errors.name && <p className="text-xs text-red-400">{errors.name}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-sm font-medium">Email Address</Label>
@@ -128,40 +166,47 @@ function ContactPage() {
                     id="email"
                     type="email"
                     placeholder="jane@example.com"
-                    required
                     value={formData.email}
                     onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))}
                     className="glass border-white/10 bg-white/5 focus-visible:ring-fuchsia-500/50"
                   />
+                  {errors.email && <p className="text-xs text-red-400">{errors.email}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone" className="text-sm font-medium">Phone Number</Label>
                   <Input
                     id="phone"
                     type="tel"
-                    placeholder="+1 (555) 000-0000"
+                    placeholder="10-digit number"
+                    inputMode="numeric"
                     value={formData.phone}
                     onChange={(e) => setFormData((p) => ({ ...p, phone: e.target.value }))}
                     className="glass border-white/10 bg-white/5 focus-visible:ring-fuchsia-500/50"
                   />
+                  {errors.phone && <p className="text-xs text-red-400">{errors.phone}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="message" className="text-sm font-medium">Requirement / Message</Label>
                   <Textarea
                     id="message"
                     placeholder="Tell us what you need..."
-                    required
                     rows={5}
                     value={formData.message}
                     onChange={(e) => setFormData((p) => ({ ...p, message: e.target.value }))}
                     className="glass border-white/10 bg-white/5 focus-visible:ring-fuchsia-500/50 resize-none"
                   />
+                  {errors.message && <p className="text-xs text-red-400">{errors.message}</p>}
                 </div>
                 <Button
                   type="submit"
+                  disabled={submitting}
                   className="w-full btn-glow bg-gradient-to-r from-fuchsia-500 to-blue-500 text-white hover:opacity-90"
                 >
-                  Send Message <Send className="ml-2 h-4 w-4" />
+                  {submitting ? (
+                    <>Sending... <Loader2 className="ml-2 h-4 w-4 animate-spin" /></>
+                  ) : (
+                    <>Send Message <Send className="ml-2 h-4 w-4" /></>
+                  )}
                 </Button>
               </form>
             )}
