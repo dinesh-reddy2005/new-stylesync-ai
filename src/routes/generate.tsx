@@ -1,8 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Check, Copy, Loader2, Sparkles, Wand2 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import {
+  Check,
+  Copy,
+  History,
+  Loader2,
+  Sparkles,
+  Trash2,
+  Wand2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,12 +27,42 @@ const SUGGESTIONS = [
   "Plan a minimalist work-from-home outfit rotation",
 ];
 
+type HistoryItem = {
+  id: string;
+  prompt: string;
+  response: string;
+  createdAt: number;
+};
+
+const HISTORY_KEY = "stylesync.generate.history.v1";
+const MAX_HISTORY = 20;
+
 function GeneratePage() {
   const generate = useServerFn(generateAI);
   const [prompt, setPrompt] = useState("");
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+
+  // Load history from localStorage on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(HISTORY_KEY);
+      if (raw) setHistory(JSON.parse(raw));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const persistHistory = (items: HistoryItem[]) => {
+    setHistory(items);
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(items));
+    } catch {
+      /* ignore quota errors */
+    }
+  };
 
   const onGenerate = async () => {
     const trimmed = prompt.trim();
@@ -35,6 +75,13 @@ function GeneratePage() {
     try {
       const res = await generate({ data: { prompt: trimmed } });
       setOutput(res.content);
+      const item: HistoryItem = {
+        id: crypto.randomUUID(),
+        prompt: trimmed,
+        response: res.content,
+        createdAt: Date.now(),
+      };
+      persistHistory([item, ...history].slice(0, MAX_HISTORY));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Generation failed.");
     } finally {
@@ -54,12 +101,26 @@ function GeneratePage() {
     }
   };
 
+  const onSelectHistory = (item: HistoryItem) => {
+    setPrompt(item.prompt);
+    setOutput(item.response);
+  };
+
+  const onRemoveHistory = (id: string) => {
+    persistHistory(history.filter((h) => h.id !== id));
+  };
+
+  const onClearHistory = () => {
+    persistHistory([]);
+    toast.success("History cleared");
+  };
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 md:py-12">
       {/* Header */}
       <div className="mb-8 text-center">
         <div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-fuchsia-200 backdrop-blur">
-          <Sparkles className="h-3.5 w-3.5" /> AI Studio
+          <Sparkles className="h-3.5 w-3.5" /> Powered by Gemini
         </div>
         <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
           Generate with <span className="text-gradient">StyleSync AI</span>
@@ -156,9 +217,19 @@ function GeneratePage() {
           {loading ? (
             <LoadingShimmer />
           ) : output ? (
-            <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-foreground/90">
-              {output}
-            </pre>
+            <article
+              className="prose prose-sm prose-invert max-w-none
+                prose-headings:text-foreground prose-headings:font-semibold
+                prose-p:text-foreground/90 prose-strong:text-foreground
+                prose-a:text-fuchsia-300 hover:prose-a:text-fuchsia-200
+                prose-code:rounded prose-code:bg-white/10 prose-code:px-1 prose-code:py-0.5
+                prose-code:text-fuchsia-200 prose-code:before:content-none prose-code:after:content-none
+                prose-pre:bg-black/40 prose-pre:border prose-pre:border-white/10
+                prose-li:text-foreground/90 prose-blockquote:border-fuchsia-400/40
+                prose-blockquote:text-foreground/80"
+            >
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{output}</ReactMarkdown>
+            </article>
           ) : (
             <div className="grid h-full place-items-center py-10 text-center">
               <div>
@@ -174,6 +245,73 @@ function GeneratePage() {
           )}
         </div>
       </Card>
+
+      {/* History */}
+      <section className="mt-8">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <History className="h-4 w-4 text-fuchsia-400" />
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              History
+            </h2>
+            {history.length > 0 && (
+              <span className="text-xs text-muted-foreground">({history.length})</span>
+            )}
+          </div>
+          {history.length > 0 && (
+            <Button
+              onClick={onClearHistory}
+              size="sm"
+              variant="ghost"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Clear all
+            </Button>
+          )}
+        </div>
+
+        {history.length === 0 ? (
+          <Card className="glass flex flex-col items-center justify-center gap-2 border-dashed border-white/10 px-6 py-8 text-center">
+            <History className="h-5 w-5 text-muted-foreground" />
+            <p className="text-sm font-medium">No history yet</p>
+            <p className="text-xs text-muted-foreground">
+              Your generated responses will appear here.
+            </p>
+          </Card>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {history.map((h) => (
+              <Card
+                key={h.id}
+                className="glass group relative cursor-pointer border-white/10 p-4 transition hover:-translate-y-0.5 hover:bg-white/[0.06]"
+                onClick={() => onSelectHistory(h)}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <p className="line-clamp-2 text-sm font-medium text-foreground/90">
+                    {h.prompt}
+                  </p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemoveHistory(h.id);
+                    }}
+                    className="opacity-0 transition group-hover:opacity-100"
+                    aria-label="Remove from history"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                  </button>
+                </div>
+                <p className="mt-2 line-clamp-3 text-xs text-muted-foreground">
+                  {h.response}
+                </p>
+                <p className="mt-3 text-[10px] uppercase tracking-wider text-muted-foreground/70">
+                  {new Date(h.createdAt).toLocaleString()}
+                </p>
+              </Card>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
