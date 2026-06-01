@@ -1,43 +1,126 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { createParser } from "eventsource-parser";
+import { flushSync } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Slider } from "@/components/ui/slider";
-import { Upload, Wand2, Camera, Ruler, Sparkles, RefreshCw } from "lucide-react";
+import { Upload, Wand2, Camera, Ruler, Sparkles, RefreshCw, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { analyzeBody, type BodyAnalysis } from "@/lib/tryon.functions";
 
 export const Route = createFileRoute("/try-on")({
   component: TryOn,
 });
 
-const outfits = [
-  { name: "Neo Streetwear Set", hue: 300, fit: 94 },
-  { name: "Minimal Linen Suit", hue: 60, fit: 89 },
-  { name: "Cyber Athleisure", hue: 240, fit: 91 },
-  { name: "Evening Velvet", hue: 330, fit: 87 },
+type Outfit = {
+  id: string;
+  name: string;
+  category: "Casual" | "Streetwear" | "Formal" | "Oversized";
+  hue: number;
+  prompt: string;
+};
+
+const OUTFITS: Outfit[] = [
+  {
+    id: "casual-linen",
+    name: "Minimal Linen Set",
+    category: "Casual",
+    hue: 60,
+    prompt:
+      "a relaxed minimal linen outfit: cream short-sleeve linen shirt tucked into beige tailored linen trousers, soft natural fabric, casual everyday look",
+  },
+  {
+    id: "street-neo",
+    name: "Neo Streetwear",
+    category: "Streetwear",
+    hue: 300,
+    prompt:
+      "neo streetwear: oversized black graphic tee, cargo pants with techwear straps, layered with a cropped utility vest, urban modern style",
+  },
+  {
+    id: "formal-velvet",
+    name: "Evening Velvet Suit",
+    category: "Formal",
+    hue: 330,
+    prompt:
+      "a sharply tailored midnight-blue velvet two-piece suit with satin lapels over a crisp white shirt, formal evening look",
+  },
+  {
+    id: "oversized-cyber",
+    name: "Oversized Cyber Hoodie",
+    category: "Oversized",
+    hue: 240,
+    prompt:
+      "oversized futuristic cyber hoodie in deep charcoal with subtle neon piping, baggy wide-leg techwear pants, modern athleisure",
+  },
 ];
 
 function TryOn() {
-  const [photo, setPhoto] = useState<string | null>(null);
-  const [selected, setSelected] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [analyzed, setAnalyzed] = useState(false);
+  const analyzeFn = useServerFn(analyzeBody);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+  const [originalDataUrl, setOriginalDataUrl] = useState<string | null>(null);
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const [isFinal, setIsFinal] = useState(false);
+  const [analysis, setAnalysis] = useState<BodyAnalysis | null>(null);
+  const [selected, setSelected] = useState<Outfit | null>(null);
+
+  const [analyzing, setAnalyzing] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [statusText, setStatusText] = useState<string>("");
+
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
-    const url = URL.createObjectURL(f);
-    setPhoto(url);
-    setAnalyzed(false);
+    if (f.size > 8 * 1024 * 1024) {
+      toast.error("Image too large. Please use an image under 8MB.");
+      return;
+    }
+    const dataUrl = await fileToDataUrl(f);
+    setOriginalDataUrl(dataUrl);
+    setPreviewSrc(dataUrl);
+    setIsFinal(true);
+    setAnalysis(null);
+    setSelected(null);
+
+    setAnalyzing(true);
+    setStatusText("Analyzing body structure…");
+    try {
+      const result = await analyzeFn({ data: { imageDataUrl: dataUrl } });
+      setAnalysis(result);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Body analysis failed.");
+    } finally {
+      setAnalyzing(false);
+      setStatusText("");
+    }
   }
 
-  function generate() {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setAnalyzed(true);
-    }, 1400);
+  async function generateTryOn(outfit: Outfit) {
+    if (!originalDataUrl) {
+      toast.error("Upload a photo first.");
+      return;
+    }
+    setSelected(outfit);
+    setGenerating(true);
+    setIsFinal(false);
+    setStatusText("Generating AI outfit fit…");
+
+    try {
+      await streamTryOn(originalDataUrl, outfit.prompt, (dataUrl, final) => {
+        setPreviewSrc(dataUrl);
+        if (final) setIsFinal(true);
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Try-on generation failed.");
+      setPreviewSrc(originalDataUrl);
+      setIsFinal(true);
+    } finally {
+      setGenerating(false);
+      setStatusText("");
+    }
   }
 
   return (
@@ -48,7 +131,7 @@ function TryOn() {
           See it on <span className="text-gradient">you</span> first
         </h1>
         <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-          Upload a full-body photo and our AI renders outfits with body-fit analysis.
+          Upload a full-body photo. Our AI analyzes your proportions and renders real outfits onto your body.
         </p>
       </div>
 
@@ -56,37 +139,44 @@ function TryOn() {
         {/* Upload + preview */}
         <Card className="glass-strong border-white/10 p-5">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-medium flex items-center gap-2"><Camera className="h-4 w-4 text-fuchsia-300" /> Your photo</h2>
-            {photo && (
-              <Button variant="ghost" size="sm" onClick={() => fileRef.current?.click()} className="text-muted-foreground">
+            <h2 className="text-lg font-medium flex items-center gap-2">
+              <Camera className="h-4 w-4 text-fuchsia-300" /> Your photo
+            </h2>
+            {originalDataUrl && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => fileRef.current?.click()}
+                className="text-muted-foreground"
+              >
                 <RefreshCw className="mr-1 h-3 w-3" /> Replace
               </Button>
             )}
           </div>
 
           <div className="relative mt-4 aspect-[3/4] overflow-hidden rounded-2xl border border-dashed border-white/15 bg-black/30">
-            {photo ? (
+            {previewSrc ? (
               <>
-                <img src={photo} alt="Your upload" className="h-full w-full object-cover" />
-                <div
-                  className="absolute inset-0 mix-blend-screen transition-opacity"
-                  style={{
-                    background: `linear-gradient(135deg, oklch(0.5 0.25 ${outfits[selected].hue} / 0.45), oklch(0.4 0.22 ${outfits[selected].hue + 40} / 0.3))`,
-                  }}
+                <img
+                  src={previewSrc}
+                  alt={selected ? `Wearing ${selected.name}` : "Your upload"}
+                  className={`h-full w-full object-cover transition-[filter] duration-300 ${
+                    isFinal ? "blur-0" : "blur-xl"
+                  }`}
                 />
-                {loading && (
+                {(analyzing || generating) && (
                   <div className="absolute inset-0 grid place-items-center bg-black/40 backdrop-blur-sm">
                     <div className="flex flex-col items-center gap-3">
-                      <div className="h-10 w-10 animate-spin rounded-full border-2 border-fuchsia-400 border-t-transparent" />
-                      <p className="text-sm text-muted-foreground">Generating try-on…</p>
+                      <Loader2 className="h-10 w-10 animate-spin text-fuchsia-400" />
+                      <p className="text-sm text-fuchsia-100/90">{statusText}</p>
                     </div>
                   </div>
                 )}
-                {analyzed && !loading && (
+                {selected && isFinal && !generating && (
                   <div className="absolute bottom-3 left-3 right-3 glass rounded-xl p-3">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-muted-foreground">Wearing</span>
-                      <span className="font-medium">{outfits[selected].name}</span>
+                      <span className="font-medium">{selected.name}</span>
                     </div>
                   </div>
                 )}
@@ -110,14 +200,20 @@ function TryOn() {
           </div>
           <input ref={fileRef} type="file" accept="image/*" hidden onChange={onFile} />
 
-          <Button
-            onClick={generate}
-            disabled={!photo || loading}
-            className="btn-glow mt-4 w-full bg-gradient-to-r from-fuchsia-500 to-blue-500 text-white hover:opacity-90"
-          >
-            <Wand2 className="mr-2 h-4 w-4" />
-            {loading ? "Generating…" : "Generate Try-On"}
-          </Button>
+          {originalDataUrl && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                setPreviewSrc(originalDataUrl);
+                setIsFinal(true);
+                setSelected(null);
+              }}
+              disabled={generating || !selected}
+              className="mt-4 w-full border-white/10"
+            >
+              Reset to original photo
+            </Button>
+          )}
         </Card>
 
         {/* Controls */}
@@ -125,69 +221,191 @@ function TryOn() {
           <Card className="glass border-white/10 p-5">
             <h3 className="text-sm font-medium text-muted-foreground">Choose an outfit</h3>
             <div className="mt-3 grid grid-cols-2 gap-3">
-              {outfits.map((o, i) => (
+              {OUTFITS.map((o) => (
                 <button
-                  key={o.name}
-                  onClick={() => setSelected(i)}
-                  className={`group relative aspect-square overflow-hidden rounded-xl border transition ${
-                    selected === i ? "border-fuchsia-400 neon-border" : "border-white/10 hover:border-white/30"
+                  key={o.id}
+                  onClick={() => generateTryOn(o)}
+                  disabled={!originalDataUrl || analyzing || generating}
+                  className={`group relative aspect-square overflow-hidden rounded-xl border text-left transition disabled:opacity-50 disabled:cursor-not-allowed ${
+                    selected?.id === o.id
+                      ? "border-fuchsia-400 neon-border"
+                      : "border-white/10 hover:border-white/30"
                   }`}
-                  style={{ background: `linear-gradient(135deg, oklch(0.4 0.22 ${o.hue}), oklch(0.2 0.12 ${o.hue + 40}))` }}
+                  style={{
+                    background: `linear-gradient(135deg, oklch(0.4 0.22 ${o.hue}), oklch(0.2 0.12 ${o.hue + 40}))`,
+                  }}
                 >
-                  <div className="absolute bottom-2 left-2 right-2 text-left text-xs font-medium">{o.name}</div>
+                  <div className="absolute top-2 left-2 text-[10px] uppercase tracking-wider text-white/70">
+                    {o.category}
+                  </div>
+                  <div className="absolute bottom-2 left-2 right-2 text-xs font-medium">
+                    {o.name}
+                  </div>
+                  {selected?.id === o.id && generating && (
+                    <div className="absolute inset-0 grid place-items-center bg-black/40">
+                      <Loader2 className="h-5 w-5 animate-spin text-white" />
+                    </div>
+                  )}
                 </button>
               ))}
             </div>
+            {!originalDataUrl && (
+              <p className="mt-3 text-xs text-muted-foreground">Upload a photo to enable try-on.</p>
+            )}
           </Card>
 
           <Card className="glass border-white/10 p-5">
             <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <Ruler className="h-4 w-4" /> Body-Fit Analysis
             </h3>
-            {analyzed ? (
+            {analyzing ? (
+              <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Analyzing body structure…
+              </div>
+            ) : analysis ? (
               <div className="mt-4 space-y-4">
-                <FitRow label="Shoulder fit" value={92} />
-                <FitRow label="Waist fit" value={outfits[selected].fit} />
-                <FitRow label="Length" value={88} />
-                <FitRow label="Overall comfort" value={90} />
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <Stat label="Shoulders" value={analysis.shoulders} />
+                  <Stat label="Waist" value={analysis.waist} />
+                  <Stat label="Torso" value={analysis.torso} />
+                  <Stat label="Body type" value={analysis.bodyType} />
+                  <Stat label="Height ratio" value={`${analysis.heightRatio.toFixed(1)} heads`} />
+                  <Stat label="Confidence" value={`${Math.round(analysis.confidence)}%`} />
+                </div>
+                <FitRow label="Shoulder fit" value={analysis.measurements.shoulderFit} />
+                <FitRow label="Waist fit" value={analysis.measurements.waistFit} />
+                <FitRow label="Length" value={analysis.measurements.lengthFit} />
+                <FitRow label="Overall comfort" value={analysis.measurements.comfort} />
                 <div className="rounded-xl glass-strong p-3 text-sm">
                   <span className="text-muted-foreground">Recommended size: </span>
-                  <span className="font-medium text-fuchsia-300">M (regular)</span>
+                  <span className="font-medium text-fuchsia-300">{analysis.recommendedSize}</span>
+                </div>
+                <div className="rounded-xl glass-strong p-3 text-xs leading-relaxed text-muted-foreground">
+                  <Sparkles className="mr-1 inline h-3 w-3 text-fuchsia-300" />
+                  {analysis.reasoning}
                 </div>
               </div>
             ) : (
               <p className="mt-3 text-sm text-muted-foreground">
-                Generate a try-on to see size and fit insights.
+                Upload a full-body photo to see size and fit insights.
               </p>
             )}
           </Card>
 
-          <Card className="glass border-white/10 p-5">
-            <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-fuchsia-300" /> Styling intensity
-            </h3>
-            <Slider defaultValue={[60]} max={100} step={5} className="mt-4" />
-            <p className="mt-2 text-xs text-muted-foreground">Subtle → Statement</p>
-          </Card>
+          {selected && analysis && isFinal && !generating && (
+            <Card className="glass border-white/10 p-5">
+              <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <Wand2 className="h-4 w-4 text-fuchsia-300" /> Why this outfit
+              </h3>
+              <p className="mt-2 text-sm">
+                The {selected.name.toLowerCase()} suits your{" "}
+                <span className="text-fuchsia-300">{analysis.shoulders}</span> shoulders and{" "}
+                <span className="text-fuchsia-300">{analysis.waist}</span> waist
+                {selected.category === "Oversized"
+                  ? " — the relaxed cut adds visual volume while staying balanced."
+                  : selected.category === "Formal"
+                    ? " — tailored lines elongate your silhouette."
+                    : selected.category === "Streetwear"
+                      ? " — layered proportions complement your frame."
+                      : " — soft fabrics drape naturally on your body type."}
+              </p>
+            </Card>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-white/5 px-2 py-1.5">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="text-sm font-medium capitalize">{value}</div>
+    </div>
+  );
+}
+
 function FitRow({ label, value }: { label: string; value: number }) {
+  const v = Math.max(0, Math.min(100, value));
   return (
     <div>
       <div className="flex justify-between text-xs">
         <span className="text-muted-foreground">{label}</span>
-        <span className="font-medium">{value}%</span>
+        <span className="font-medium">{Math.round(v)}%</span>
       </div>
       <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10">
         <div
           className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 to-blue-500"
-          style={{ width: `${value}%` }}
+          style={{ width: `${v}%` }}
         />
       </div>
     </div>
   );
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function streamTryOn(
+  imageDataUrl: string,
+  outfitPrompt: string,
+  onFrame: (dataUrl: string, isFinal: boolean) => void,
+): Promise<void> {
+  const res = await fetch("/api/tryon-image", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ imageDataUrl, outfitPrompt }),
+  });
+  if (!res.ok || !res.body) {
+    let msg = `Try-on failed (${res.status})`;
+    try {
+      const j = await res.json();
+      if (j?.error) msg = j.error;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(msg);
+  }
+
+  let sawCompleted = false;
+  const parser = createParser({
+    onEvent(event) {
+      if (
+        event.event !== "image_generation.partial_image" &&
+        event.event !== "image_generation.completed"
+      )
+        return;
+      let payload: { b64_json?: string };
+      try {
+        payload = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+      if (!payload.b64_json) return;
+      const isFinal = event.event === "image_generation.completed";
+      flushSync(() => {
+        onFrame(`data:image/png;base64,${payload.b64_json}`, isFinal);
+      });
+      if (isFinal) sawCompleted = true;
+    },
+  });
+
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      parser.feed(value);
+    }
+  } finally {
+    reader.cancel().catch(() => {});
+  }
+  if (!sawCompleted) throw new Error("Try-on stream ended before completion.");
 }
