@@ -14,6 +14,65 @@ export type Database = {
   }
   public: {
     Tables: {
+      fashion_knowledge_base: {
+        Row: {
+          category: string
+          chunk_index: number
+          content: string
+          created_at: string
+          embedding: string | null
+          embedding_status: string
+          id: string
+          keywords: string | null
+          metadata: Json
+          parent_id: string | null
+          source: string | null
+          title: string
+          token_count: number | null
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          chunk_index?: number
+          content: string
+          created_at?: string
+          embedding?: string | null
+          embedding_status?: string
+          id?: string
+          keywords?: string | null
+          metadata?: Json
+          parent_id?: string | null
+          source?: string | null
+          title: string
+          token_count?: number | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          chunk_index?: number
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          embedding_status?: string
+          id?: string
+          keywords?: string | null
+          metadata?: Json
+          parent_id?: string | null
+          source?: string | null
+          title?: string
+          token_count?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fashion_knowledge_base_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "fashion_knowledge_base"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -46,7 +105,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      match_fashion_knowledge: {
+        Args: {
+          filter_category?: string
+          match_count?: number
+          query_embedding: string
+        }
+        Returns: {
+          category: string
+          content: string
+          id: string
+          keywords: string
+          similarity: number
+          source: string
+          title: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
