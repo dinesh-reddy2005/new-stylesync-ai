@@ -18,6 +18,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiTryonImageRouteImport } from './routes/api/tryon-image'
+import { Route as AdminKnowledgeRouteImport } from './routes/admin.knowledge'
 
 const TryOnRoute = TryOnRouteImport.update({
   id: '/try-on',
@@ -64,6 +65,11 @@ const ApiTryonImageRoute = ApiTryonImageRouteImport.update({
   path: '/api/tryon-image',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminKnowledgeRoute = AdminKnowledgeRouteImport.update({
+  id: '/admin/knowledge',
+  path: '/admin/knowledge',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -74,6 +80,7 @@ export interface FileRoutesByFullPath {
   '/recommendations': typeof RecommendationsRoute
   '/signup': typeof SignupRoute
   '/try-on': typeof TryOnRoute
+  '/admin/knowledge': typeof AdminKnowledgeRoute
   '/api/tryon-image': typeof ApiTryonImageRoute
 }
 export interface FileRoutesByTo {
@@ -85,6 +92,7 @@ export interface FileRoutesByTo {
   '/recommendations': typeof RecommendationsRoute
   '/signup': typeof SignupRoute
   '/try-on': typeof TryOnRoute
+  '/admin/knowledge': typeof AdminKnowledgeRoute
   '/api/tryon-image': typeof ApiTryonImageRoute
 }
 export interface FileRoutesById {
@@ -97,6 +105,7 @@ export interface FileRoutesById {
   '/recommendations': typeof RecommendationsRoute
   '/signup': typeof SignupRoute
   '/try-on': typeof TryOnRoute
+  '/admin/knowledge': typeof AdminKnowledgeRoute
   '/api/tryon-image': typeof ApiTryonImageRoute
 }
 export interface FileRouteTypes {
@@ -110,6 +119,7 @@ export interface FileRouteTypes {
     | '/recommendations'
     | '/signup'
     | '/try-on'
+    | '/admin/knowledge'
     | '/api/tryon-image'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -121,6 +131,7 @@ export interface FileRouteTypes {
     | '/recommendations'
     | '/signup'
     | '/try-on'
+    | '/admin/knowledge'
     | '/api/tryon-image'
   id:
     | '__root__'
@@ -132,6 +143,7 @@ export interface FileRouteTypes {
     | '/recommendations'
     | '/signup'
     | '/try-on'
+    | '/admin/knowledge'
     | '/api/tryon-image'
   fileRoutesById: FileRoutesById
 }
@@ -144,6 +156,7 @@ export interface RootRouteChildren {
   RecommendationsRoute: typeof RecommendationsRoute
   SignupRoute: typeof SignupRoute
   TryOnRoute: typeof TryOnRoute
+  AdminKnowledgeRoute: typeof AdminKnowledgeRoute
   ApiTryonImageRoute: typeof ApiTryonImageRoute
 }
 
@@ -212,6 +225,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTryonImageRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/knowledge': {
+      id: '/admin/knowledge'
+      path: '/admin/knowledge'
+      fullPath: '/admin/knowledge'
+      preLoaderRoute: typeof AdminKnowledgeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -224,8 +244,19 @@ const rootRouteChildren: RootRouteChildren = {
   RecommendationsRoute: RecommendationsRoute,
   SignupRoute: SignupRoute,
   TryOnRoute: TryOnRoute,
+  AdminKnowledgeRoute: AdminKnowledgeRoute,
   ApiTryonImageRoute: ApiTryonImageRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
