@@ -9,7 +9,6 @@ const links = [
   { to: "/try-on", label: "Virtual Try-On" },
   { to: "/recommendations", label: "Recommendations" },
   { to: "/generate", label: "AI Studio" },
-  { to: "/admin/knowledge", label: "Knowledge" },
   { to: "/contact", label: "Contact" },
 ];
 
