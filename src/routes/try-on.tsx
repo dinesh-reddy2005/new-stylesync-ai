@@ -17,9 +17,10 @@ export const Route = createFileRoute("/try-on")({
 type Outfit = {
   id: string;
   name: string;
-  category: "Casual" | "Streetwear" | "Formal" | "Oversized";
-  hue: number;
+  category: "Casual" | "Streetwear" | "Formal" | "Oversized" | "Smart Casual";
+  image: string;
   prompt: string;
+  aiPick?: boolean;
 };
 
 const OUTFITS: Outfit[] = [
@@ -27,15 +28,18 @@ const OUTFITS: Outfit[] = [
     id: "casual-linen",
     name: "Minimal Linen Set",
     category: "Casual",
-    hue: 60,
+    image:
+      "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=800&q=80",
     prompt:
       "a relaxed minimal linen outfit: cream short-sleeve linen shirt tucked into beige tailored linen trousers, soft natural fabric, casual everyday look",
+    aiPick: true,
   },
   {
     id: "street-neo",
     name: "Neo Streetwear",
     category: "Streetwear",
-    hue: 300,
+    image:
+      "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=800&q=80",
     prompt:
       "neo streetwear: oversized black graphic tee, cargo pants with techwear straps, layered with a cropped utility vest, urban modern style",
   },
@@ -43,7 +47,8 @@ const OUTFITS: Outfit[] = [
     id: "formal-velvet",
     name: "Evening Velvet Suit",
     category: "Formal",
-    hue: 330,
+    image:
+      "https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=800&q=80",
     prompt:
       "a sharply tailored midnight-blue velvet two-piece suit with satin lapels over a crisp white shirt, formal evening look",
   },
@@ -51,11 +56,43 @@ const OUTFITS: Outfit[] = [
     id: "oversized-cyber",
     name: "Oversized Cyber Hoodie",
     category: "Oversized",
-    hue: 240,
+    image:
+      "https://images.unsplash.com/photo-1556821840-3a63f95609a7?auto=format&fit=crop&w=800&q=80",
     prompt:
       "oversized futuristic cyber hoodie in deep charcoal with subtle neon piping, baggy wide-leg techwear pants, modern athleisure",
+    aiPick: true,
+  },
+  {
+    id: "smart-casual",
+    name: "Smart Casual Layers",
+    category: "Smart Casual",
+    image:
+      "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=800&q=80",
+    prompt:
+      "smart casual: navy blazer over a fine knit crewneck, slim chinos, minimal leather sneakers, refined modern look",
+  },
+  {
+    id: "casual-denim",
+    name: "Everyday Denim",
+    category: "Casual",
+    image:
+      "https://images.unsplash.com/photo-1516257984-b1b4d707412e?auto=format&fit=crop&w=800&q=80",
+    prompt:
+      "everyday casual: vintage washed denim jacket over a plain white tee, straight-leg jeans, white sneakers",
+  },
+  {
+    id: "formal-tux",
+    name: "Classic Black Tux",
+    category: "Formal",
+    image:
+      "https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=800&q=80",
+    prompt:
+      "classic black tuxedo with satin lapels, crisp white pleated shirt and black bow tie, formal black-tie look",
   },
 ];
+
+const FALLBACK_IMAGE =
+  "https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=800&q=80";
 
 function TryOn() {
   const analyzeFn = useServerFn(analyzeBody);
@@ -226,24 +263,40 @@ function TryOn() {
                   key={o.id}
                   onClick={() => generateTryOn(o)}
                   disabled={!originalDataUrl || analyzing || generating}
-                  className={`group relative aspect-square overflow-hidden rounded-xl border text-left transition disabled:opacity-50 disabled:cursor-not-allowed ${
+                  className={`group relative aspect-[3/4] overflow-hidden rounded-xl border text-left transition disabled:opacity-50 disabled:cursor-not-allowed bg-black/40 ${
                     selected?.id === o.id
                       ? "border-fuchsia-400 neon-border"
                       : "border-white/10 hover:border-white/30"
                   }`}
-                  style={{
-                    background: `linear-gradient(135deg, oklch(0.4 0.22 ${o.hue}), oklch(0.2 0.12 ${o.hue + 40}))`,
-                  }}
                 >
-                  <div className="absolute top-2 left-2 text-[10px] uppercase tracking-wider text-white/70">
+                  <img
+                    src={o.image}
+                    alt={o.name}
+                    loading="lazy"
+                    onError={(e) => {
+                      const img = e.currentTarget;
+                      if (img.src !== FALLBACK_IMAGE) img.src = FALLBACK_IMAGE;
+                    }}
+                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                  {o.aiPick && (
+                    <div className="absolute top-2 right-2 glass rounded-full px-2 py-0.5 text-[10px] font-medium text-fuchsia-200 border border-fuchsia-400/40">
+                      AI Pick
+                    </div>
+                  )}
+                  <div className="absolute top-2 left-2 glass rounded-md px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-white/80 border border-white/10">
                     {o.category}
                   </div>
-                  <div className="absolute bottom-2 left-2 right-2 text-xs font-medium">
+                  <div className="absolute bottom-2 left-2 right-2 text-xs font-medium text-white drop-shadow">
                     {o.name}
                   </div>
                   {selected?.id === o.id && generating && (
-                    <div className="absolute inset-0 grid place-items-center bg-black/40">
-                      <Loader2 className="h-5 w-5 animate-spin text-white" />
+                    <div className="absolute inset-0 grid place-items-center bg-black/60 backdrop-blur-sm">
+                      <div className="flex flex-col items-center gap-1.5">
+                        <Loader2 className="h-5 w-5 animate-spin text-fuchsia-300" />
+                        <span className="text-[10px] text-fuchsia-100">Generating AI preview…</span>
+                      </div>
                     </div>
                   )}
                 </button>
