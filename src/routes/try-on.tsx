@@ -263,24 +263,40 @@ function TryOn() {
                   key={o.id}
                   onClick={() => generateTryOn(o)}
                   disabled={!originalDataUrl || analyzing || generating}
-                  className={`group relative aspect-square overflow-hidden rounded-xl border text-left transition disabled:opacity-50 disabled:cursor-not-allowed ${
+                  className={`group relative aspect-[3/4] overflow-hidden rounded-xl border text-left transition disabled:opacity-50 disabled:cursor-not-allowed bg-black/40 ${
                     selected?.id === o.id
                       ? "border-fuchsia-400 neon-border"
                       : "border-white/10 hover:border-white/30"
                   }`}
-                  style={{
-                    background: `linear-gradient(135deg, oklch(0.4 0.22 ${o.hue}), oklch(0.2 0.12 ${o.hue + 40}))`,
-                  }}
                 >
-                  <div className="absolute top-2 left-2 text-[10px] uppercase tracking-wider text-white/70">
+                  <img
+                    src={o.image}
+                    alt={o.name}
+                    loading="lazy"
+                    onError={(e) => {
+                      const img = e.currentTarget;
+                      if (img.src !== FALLBACK_IMAGE) img.src = FALLBACK_IMAGE;
+                    }}
+                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                  {o.aiPick && (
+                    <div className="absolute top-2 right-2 glass rounded-full px-2 py-0.5 text-[10px] font-medium text-fuchsia-200 border border-fuchsia-400/40">
+                      AI Pick
+                    </div>
+                  )}
+                  <div className="absolute top-2 left-2 glass rounded-md px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-white/80 border border-white/10">
                     {o.category}
                   </div>
-                  <div className="absolute bottom-2 left-2 right-2 text-xs font-medium">
+                  <div className="absolute bottom-2 left-2 right-2 text-xs font-medium text-white drop-shadow">
                     {o.name}
                   </div>
                   {selected?.id === o.id && generating && (
-                    <div className="absolute inset-0 grid place-items-center bg-black/40">
-                      <Loader2 className="h-5 w-5 animate-spin text-white" />
+                    <div className="absolute inset-0 grid place-items-center bg-black/60 backdrop-blur-sm">
+                      <div className="flex flex-col items-center gap-1.5">
+                        <Loader2 className="h-5 w-5 animate-spin text-fuchsia-300" />
+                        <span className="text-[10px] text-fuchsia-100">Generating AI preview…</span>
+                      </div>
                     </div>
                   )}
                 </button>
