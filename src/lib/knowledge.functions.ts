@@ -4,6 +4,16 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const EMBEDDING_MODEL = "openai/text-embedding-3-small"; // 1536 dims, matches column
 
+async function assertAdmin(userId: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data, error } = await supabaseAdmin.rpc("has_role", {
+    _user_id: userId,
+    _role: "admin",
+  });
+  if (error) throw new Error(`Role check failed: ${error.message}`);
+  if (!data) throw new Error("Forbidden: admin role required.");
+}
+
 const EntryInputSchema = z.object({
   title: z.string().min(1).max(200),
   category: z.string().min(1).max(80),
@@ -93,7 +103,8 @@ export const upsertKnowledge = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) =>
     EntryInputSchema.extend({ id: z.string().uuid().optional() }).parse(data),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const textForEmbed = `${data.title}\n\n${data.content}\n\nKeywords: ${data.keywords ?? ""}`;
     const vector = await embed(textForEmbed);
@@ -127,7 +138,8 @@ export const upsertKnowledge = createServerFn({ method: "POST" })
 export const deleteKnowledge = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ id: z.string().uuid() }).parse(data))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin
       .from("fashion_knowledge_base")
@@ -139,7 +151,8 @@ export const deleteKnowledge = createServerFn({ method: "POST" })
 
 export const reembedAll = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async () => {
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
       .from("fashion_knowledge_base")

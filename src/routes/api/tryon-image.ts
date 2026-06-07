@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { createClient } from "@supabase/supabase-js";
 
 type Body = {
   imageDataUrl: string;
@@ -17,6 +18,34 @@ export const Route = createFileRoute("/api/tryon-image")({
           );
         }
 
+        // Require an authenticated caller to prevent unbounded credit abuse.
+        const authHeader = request.headers.get("authorization") ?? "";
+        if (!authHeader.startsWith("Bearer ")) {
+          return new Response(
+            JSON.stringify({ error: "Unauthorized" }),
+            { status: 401, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        const token = authHeader.slice("Bearer ".length).trim();
+        const SUPABASE_URL = process.env.SUPABASE_URL;
+        const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
+        if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+          return new Response(
+            JSON.stringify({ error: "Auth is not configured." }),
+            { status: 500, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+          auth: { persistSession: false, autoRefreshToken: false },
+        });
+        const { data: claims, error: claimsError } = await supabase.auth.getClaims(token);
+        if (claimsError || !claims?.claims?.sub) {
+          return new Response(
+            JSON.stringify({ error: "Unauthorized" }),
+            { status: 401, headers: { "Content-Type": "application/json" } },
+          );
+        }
+
         let body: Body;
         try {
           body = (await request.json()) as Body;
@@ -30,6 +59,13 @@ export const Route = createFileRoute("/api/tryon-image")({
         if (!body?.imageDataUrl?.startsWith("data:image/") || !body?.outfitPrompt) {
           return new Response(
             JSON.stringify({ error: "imageDataUrl and outfitPrompt are required." }),
+            { status: 400, headers: { "Content-Type": "application/json" } },
+          );
+        }
+
+        if (body.outfitPrompt.length > 500) {
+          return new Response(
+            JSON.stringify({ error: "outfitPrompt must be 500 characters or fewer." }),
             { status: 400, headers: { "Content-Type": "application/json" } },
           );
         }
