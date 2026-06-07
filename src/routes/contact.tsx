@@ -52,7 +52,7 @@ function ContactPage() {
     setSubmitting(true);
     try {
       await submit({ data: parsed.data });
-      toast.success("Thanks! We'll get back to you within 24 hours.");
+      toast.success("Thank you. Your request has been submitted successfully.");
       setFormData({ name: "", email: "", phone: "", message: "" });
       setSubmitted(true);
     } catch (err) {

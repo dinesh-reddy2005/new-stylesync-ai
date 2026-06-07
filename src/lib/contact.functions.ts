@@ -4,6 +4,7 @@ import { z } from "zod";
 const SPREADSHEET_ID = "1_DMokKE6dcjs39ihkTJt3YM7s9Wp8aNXW8eio-F-0zM";
 const SHEET_RANGE = "Sheet1!A:E";
 const GATEWAY_URL = "https://connector-gateway.lovable.dev/google_sheets/v4";
+const WEBHOOK_URL = "https://stylesync.app.n8n.cloud/webhook/website-enquiry";
 
 const contactSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100),
@@ -43,6 +44,23 @@ export const submitContact = createServerFn({ method: "POST" })
       const body = await response.text();
       console.error(`Google Sheets append failed [${response.status}]: ${body}`);
       throw new Error(`Failed to save submission (${response.status})`);
+    }
+
+    const webhookRes = await fetch(WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        message: data.message,
+      }),
+    });
+
+    if (!webhookRes.ok) {
+      const body = await webhookRes.text().catch(() => "");
+      console.error(`Webhook failed [${webhookRes.status}]: ${body}`);
+      throw new Error(`Webhook submission failed (${webhookRes.status})`);
     }
 
     return { success: true };
