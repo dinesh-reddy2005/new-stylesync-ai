@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { createClient } from "@supabase/supabase-js";
 
 type Body = {
   imageDataUrl: string;
@@ -14,6 +15,33 @@ export const Route = createFileRoute("/api/tryon-image")({
           return new Response(
             JSON.stringify({ error: "LOVABLE_API_KEY is not configured." }),
             { status: 500, headers: { "Content-Type": "application/json" } },
+          );
+        }
+
+        const authHeader = request.headers.get("authorization");
+        if (!authHeader?.startsWith("Bearer ")) {
+          return new Response(
+            JSON.stringify({ error: "Unauthorized" }),
+            { status: 401, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        const token = authHeader.slice(7);
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_PUBLISHABLE_KEY;
+        if (!supabaseUrl || !supabaseKey) {
+          return new Response(
+            JSON.stringify({ error: "Supabase not configured." }),
+            { status: 500, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        const supabase = createClient(supabaseUrl, supabaseKey, {
+          auth: { persistSession: false, autoRefreshToken: false },
+        });
+        const { data: claimsData, error: claimsErr } = await supabase.auth.getClaims(token);
+        if (claimsErr || !claimsData?.claims?.sub) {
+          return new Response(
+            JSON.stringify({ error: "Unauthorized" }),
+            { status: 401, headers: { "Content-Type": "application/json" } },
           );
         }
 
