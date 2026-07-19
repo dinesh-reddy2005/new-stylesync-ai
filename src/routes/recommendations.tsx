@@ -1,13 +1,26 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
+import { createParser } from "eventsource-parser";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Wand2, Star, Sparkles } from "lucide-react";
-import outfit1 from "@/assets/outfit-1.jpg";
-import outfit2 from "@/assets/outfit-2.jpg";
-import outfit3 from "@/assets/outfit-3.jpg";
-import outfit4 from "@/assets/outfit-4.jpg";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
+import {
+  Wand2,
+  Sparkles,
+  Loader2,
+  Shirt,
+  Info,
+  Camera,
+} from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  generateOutfits,
+  type ScoredOutfit,
+} from "@/lib/recommendations.functions";
 
 export const Route = createFileRoute("/recommendations")({
   component: Recs,
@@ -35,138 +48,480 @@ export const Route = createFileRoute("/recommendations")({
   }),
 });
 
-const occasions = ["Casual", "Work", "Date", "Party", "Travel", "Workout"];
-const weathers = ["Sunny", "Rainy", "Cold", "Hot", "Mild"];
-const styles = ["Minimal", "Streetwear", "Y2K", "Classic", "Bohemian", "Sporty"];
+const OCCASIONS = ["Casual", "Work", "Business", "Date", "Party", "Wedding", "Travel", "Workout"];
+const WEATHERS = ["Sunny", "Cloudy", "Rainy", "Snowy", "Windy", "Humid"];
+const SEASONS = ["Spring", "Summer", "Autumn", "Winter"];
+const TIMES = ["Morning", "Afternoon", "Evening", "Night"];
+const STYLES = ["Minimal", "Streetwear", "Classic", "Y2K", "Bohemian", "Sporty", "Luxury", "Preppy"];
+const TRENDS = ["Quiet Luxury", "Old Money", "Coastal Grandpa", "Balletcore", "Techwear", "Neo-Nostalgia", "Monochrome"];
+const GENDERS = ["Woman", "Man", "Non-binary"];
+const BODY_TYPES = ["Athletic", "Rectangle", "Pear", "Hourglass", "Inverted Triangle", "Oval"];
+const FITS = ["Slim", "Regular", "Oversized"];
+const SKIN_TONES = ["Warm", "Cool", "Neutral", "Deep", "Fair"];
+const COLOR_PRESETS = [
+  "Neutrals", "Earth Tones", "Jewel Tones", "Pastels", "Monochrome", "Bold Brights",
+];
 
-type Outfit = {
-  name: string;
-  pieces: string[];
-  score: number;
-  image: string;
-  tags: string[];
+type Profile = {
+  gender: string;
+  bodyType: string;
+  heightCm: number;
+  skinTone: string;
+  hairColor: string;
+  faceShape: string;
+  ageGroup: string;
+  preferredFit: string;
+  preferredColors: string[];
 };
 
-function generate(occasion: string, weather: string, style: string): Outfit[] {
-  const base: Outfit[] = [
-    {
-      name: `${style} ${occasion} Look`,
-      pieces: ["Oversized blazer", "Cropped tee", "Wide-leg trousers", "Chunky loafers"],
-      score: 94,
-      image: outfit1,
-      tags: [occasion, weather, style],
-    },
-    {
-      name: `Neo ${occasion} Edit`,
-      pieces: ["Sheer overlay", "High-waist denim", "Metallic belt", "Platform boots"],
-      score: 91,
-      image: outfit2,
-      tags: [occasion, style, "Trending"],
-    },
-    {
-      name: `${weather} ${style} Combo`,
-      pieces: ["Knit cardigan", "Pleated skirt", "Knee boots", "Crossbody bag"],
-      score: 88,
-      image: outfit3,
-      tags: [weather, style],
-    },
-    {
-      name: `Statement ${occasion}`,
-      pieces: ["Satin shirt", "Tailored shorts", "Sheer tights", "Pointed heels"],
-      score: 86,
-      image: outfit4,
-      tags: [occasion, "Statement"],
-    },
-  ];
-  return base;
+type Filters = {
+  occasion: string;
+  weather: string;
+  temperatureC: number;
+  season: string;
+  timeOfDay: string;
+  style: string;
+  trend: string;
+  location: string;
+};
+
+const PROFILE_KEY = "stylesync.rec.profile";
+const SEEN_KEY = "stylesync.rec.seen";
+
+function loadProfile(): Profile {
+  if (typeof window === "undefined") return defaultProfile();
+  try {
+    const raw = localStorage.getItem(PROFILE_KEY);
+    if (raw) return { ...defaultProfile(), ...(JSON.parse(raw) as Partial<Profile>) };
+  } catch {
+    /* ignore */
+  }
+  return defaultProfile();
+}
+
+function defaultProfile(): Profile {
+  return {
+    gender: "Woman",
+    bodyType: "Hourglass",
+    heightCm: 168,
+    skinTone: "Warm",
+    hairColor: "Brunette",
+    faceShape: "Oval",
+    ageGroup: "25-34",
+    preferredFit: "Regular",
+    preferredColors: ["Neutrals"],
+  };
 }
 
 function Recs() {
-  const [occasion, setOccasion] = useState(occasions[0]);
-  const [weather, setWeather] = useState(weathers[0]);
-  const [style, setStyle] = useState(styles[0]);
-  const [seed, setSeed] = useState(0);
+  const navigate = useNavigate();
+  const [profile, setProfile] = useState<Profile>(() =>
+    typeof window === "undefined" ? defaultProfile() : loadProfile(),
+  );
+  const [filters, setFilters] = useState<Filters>({
+    occasion: "Work",
+    weather: "Sunny",
+    temperatureC: 22,
+    season: "Spring",
+    timeOfDay: "Afternoon",
+    style: "Minimal",
+    trend: "Quiet Luxury",
+    location: "",
+  });
+  const [outfits, setOutfits] = useState<ScoredOutfit[]>([]);
+  const [images, setImages] = useState<Record<number, { src: string; final: boolean }>>({});
+  const [loading, setLoading] = useState(false);
+  const seenRef = useRef<string[]>([]);
+  const seedRef = useRef(0);
 
-  const results = useMemo(() => generate(occasion, weather, style), [occasion, weather, style, seed]);
+  const generate = useServerFn(generateOutfits);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SEEN_KEY);
+      if (raw) seenRef.current = JSON.parse(raw) as string[];
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+    } catch {
+      /* ignore */
+    }
+  }, [profile]);
+
+  const streamImage = useCallback(
+    async (index: number, prompt: string, token: string) => {
+      const res = await fetch("/api/outfit-image", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ prompt }),
+      });
+      if (!res.ok || !res.body) {
+        const t = await res.text().catch(() => "");
+        throw new Error(`Image (${res.status}): ${t.slice(0, 200)}`);
+      }
+      let sawCompleted = false;
+      let streamError: string | undefined;
+      const parser = createParser({
+        onEvent(event) {
+          let payload: {
+            type?: string;
+            b64_json?: string;
+            error?: { message?: string };
+          } | undefined;
+          try {
+            payload = JSON.parse(event.data);
+          } catch {
+            /* keep */
+          }
+          if (event.event === "error" || payload?.type === "error") {
+            streamError = payload?.error?.message ?? "Image generation failed";
+            return;
+          }
+          if (
+            event.event !== "image_generation.partial_image" &&
+            event.event !== "image_generation.completed"
+          )
+            return;
+          if (!payload?.b64_json) return;
+          const isFinal = event.event === "image_generation.completed";
+          const src = `data:image/png;base64,${payload.b64_json}`;
+          flushSync(() => {
+            setImages((prev) => ({ ...prev, [index]: { src, final: isFinal } }));
+          });
+          if (isFinal) sawCompleted = true;
+        },
+      });
+      const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          parser.feed(value);
+        }
+      } finally {
+        reader.cancel().catch(() => {});
+      }
+      if (streamError) throw new Error(streamError);
+      if (!sawCompleted) throw new Error("Image stream ended without completion");
+    },
+    [],
+  );
+
+  const handleGenerate = useCallback(async () => {
+    setLoading(true);
+    setOutfits([]);
+    setImages({});
+    try {
+      seedRef.current += 1;
+      const { outfits: raw } = await generate({
+        data: {
+          profile,
+          filters,
+          excludeSignatures: seenRef.current,
+          seed: seedRef.current,
+        },
+      });
+      const top = raw.slice(0, 4);
+      if (top.length === 0) {
+        toast.info("No new outfits available — try changing filters.");
+        setLoading(false);
+        return;
+      }
+      setOutfits(top);
+      seenRef.current = [...seenRef.current, ...top.map((o) => o.signature)].slice(-80);
+      try {
+        localStorage.setItem(SEEN_KEY, JSON.stringify(seenRef.current));
+      } catch {
+        /* ignore */
+      }
+
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      if (!token) {
+        toast.error("Sign in to render outfit previews.");
+        return;
+      }
+      await Promise.all(
+        top.map((o, i) =>
+          streamImage(i, o.imagePrompt, token).catch((e) => {
+            console.error("image", i, e);
+          }),
+        ),
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to generate outfits.");
+    } finally {
+      setLoading(false);
+    }
+  }, [generate, profile, filters, streamImage]);
+
+  const paletteSummary = useMemo(() => profile.preferredColors.join(", "), [profile.preferredColors]);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10">
+    <div className="mx-auto max-w-7xl px-4 py-10">
       <div className="text-center">
         <Badge className="glass border-white/10 text-fuchsia-300">Smart Outfit Recommendations</Badge>
         <h1 className="mt-4 text-3xl font-semibold tracking-tight md:text-5xl">
-          Outfits tailored <span className="text-gradient">to your moment</span>
+          Outfits tailored <span className="text-gradient">to your body & moment</span>
         </h1>
         <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-          Tell us the vibe — we'll generate looks based on occasion, weather, and trend signals.
+          A live AI stylist that reads your profile, weighs 12 combinations, and renders the top 4 with matching product imagery.
         </p>
       </div>
 
-      {/* Controls */}
-      <h2 className="mt-10 text-lg font-semibold tracking-tight">Style Preferences</h2>
-      <Card className="glass-strong mt-4 border-white/10 p-5">
-        <ChipGroup label="Occasion" options={occasions} value={occasion} onChange={setOccasion} />
-        <ChipGroup label="Weather" options={weathers} value={weather} onChange={setWeather} />
-        <ChipGroup label="Style" options={styles} value={style} onChange={setStyle} />
-        <Button
-          onClick={() => setSeed((s) => s + 1)}
-          className="btn-glow mt-4 w-full bg-gradient-to-r from-fuchsia-500 to-blue-500 text-white hover:opacity-90 sm:w-auto"
-        >
-          <Wand2 className="mr-2 h-4 w-4" /> Generate outfits
-        </Button>
-      </Card>
+      <div className="mt-10 grid gap-6 lg:grid-cols-[360px_1fr]">
+        <Card className="glass-strong h-fit border-white/10 p-5">
+          <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
+            <Shirt className="h-4 w-4 text-fuchsia-300" /> Your profile
+          </div>
+          <Select label="Gender" value={profile.gender} options={GENDERS} onChange={(v) => setProfile({ ...profile, gender: v })} />
+          <Select label="Body type" value={profile.bodyType} options={BODY_TYPES} onChange={(v) => setProfile({ ...profile, bodyType: v })} />
+          <Row>
+            <NumberField label="Height (cm)" value={profile.heightCm} onChange={(n) => setProfile({ ...profile, heightCm: n })} min={140} max={210} />
+            <TextField label="Age group" value={profile.ageGroup} onChange={(v) => setProfile({ ...profile, ageGroup: v })} placeholder="25-34" />
+          </Row>
+          <Select label="Skin tone" value={profile.skinTone} options={SKIN_TONES} onChange={(v) => setProfile({ ...profile, skinTone: v })} />
+          <Row>
+            <TextField label="Hair color" value={profile.hairColor} onChange={(v) => setProfile({ ...profile, hairColor: v })} placeholder="Brunette" />
+            <TextField label="Face shape" value={profile.faceShape} onChange={(v) => setProfile({ ...profile, faceShape: v })} placeholder="Oval" />
+          </Row>
+          <Select label="Preferred fit" value={profile.preferredFit} options={FITS} onChange={(v) => setProfile({ ...profile, preferredFit: v })} />
+          <div className="mb-4">
+            <div className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">Preferred colors</div>
+            <div className="flex flex-wrap gap-2">
+              {COLOR_PRESETS.map((c) => {
+                const active = profile.preferredColors.includes(c);
+                return (
+                  <button
+                    key={c}
+                    onClick={() =>
+                      setProfile({
+                        ...profile,
+                        preferredColors: active
+                          ? profile.preferredColors.filter((x) => x !== c)
+                          : [...profile.preferredColors, c],
+                      })
+                    }
+                    className={`rounded-full px-3 py-1 text-xs transition ${
+                      active
+                        ? "bg-gradient-to-r from-fuchsia-500 to-blue-500 text-white btn-glow"
+                        : "glass text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {c}
+                  </button>
+                );
+              })}
+            </div>
+            {paletteSummary && (
+              <p className="mt-2 text-[10px] text-muted-foreground">Selected: {paletteSummary}</p>
+            )}
+          </div>
+        </Card>
 
-      {/* Results */}
-      <h2 className="mt-10 text-lg font-semibold tracking-tight">Recommended Outfits</h2>
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {results.map((o, i) => (
-          <Card key={o.name + i + seed} className="glass group overflow-hidden border-white/10 transition hover:border-fuchsia-500/40 hover:-translate-y-1">
-            <div className="relative aspect-[4/5] overflow-hidden">
-              <img
-                src={o.image}
-                alt={o.name}
-                width={768}
-                height={960}
-                loading="lazy"
-                className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
-              />
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-              <div className="absolute top-2 left-2 z-10 flex items-center gap-1 rounded-full glass px-2 py-0.5 text-[10px]">
-                <Sparkles className="h-3 w-3 text-fuchsia-300" /> AI Pick
-              </div>
-              <div className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full glass px-2 py-0.5 text-[10px]">
-                <Star className="h-3 w-3 text-yellow-300" /> {o.score}
-              </div>
+        <div>
+          <Card className="glass-strong border-white/10 p-5">
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
+              <Sparkles className="h-4 w-4 text-fuchsia-300" /> Context filters
             </div>
-            <div className="p-4">
-              <div className="text-sm font-medium">{o.name}</div>
-              <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
-                {o.pieces.map((p) => (
-                  <li key={p}>• {p}</li>
-                ))}
-              </ul>
-              <div className="mt-3 flex flex-wrap gap-1">
-                {o.tags.map((t) => (
-                  <span key={t} className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-muted-foreground">{t}</span>
-                ))}
-              </div>
-              <div className="mt-3">
-                <div className="flex justify-between text-[10px] text-muted-foreground">
-                  <span>Confidence</span>
-                  <span>{o.score}%</span>
-                </div>
-                <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/10">
-                  <div className="h-full bg-gradient-to-r from-fuchsia-500 to-blue-500" style={{ width: `${o.score}%` }} />
-                </div>
-              </div>
-            </div>
+            <ChipGroup label="Occasion" options={OCCASIONS} value={filters.occasion} onChange={(v) => setFilters({ ...filters, occasion: v })} />
+            <ChipGroup label="Weather" options={WEATHERS} value={filters.weather} onChange={(v) => setFilters({ ...filters, weather: v })} />
+            <Row>
+              <NumberField label="Temperature (°C)" value={filters.temperatureC} onChange={(n) => setFilters({ ...filters, temperatureC: n })} min={-20} max={45} />
+              <TextField label="Location (optional)" value={filters.location} onChange={(v) => setFilters({ ...filters, location: v })} placeholder="Tokyo" />
+            </Row>
+            <ChipGroup label="Season" options={SEASONS} value={filters.season} onChange={(v) => setFilters({ ...filters, season: v })} />
+            <ChipGroup label="Time of day" options={TIMES} value={filters.timeOfDay} onChange={(v) => setFilters({ ...filters, timeOfDay: v })} />
+            <ChipGroup label="Style" options={STYLES} value={filters.style} onChange={(v) => setFilters({ ...filters, style: v })} />
+            <ChipGroup label="Fashion trend" options={TRENDS} value={filters.trend} onChange={(v) => setFilters({ ...filters, trend: v })} />
+            <Button
+              onClick={handleGenerate}
+              disabled={loading}
+              className="btn-glow mt-2 w-full bg-gradient-to-r from-fuchsia-500 to-blue-500 text-white hover:opacity-90 sm:w-auto"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Styling…
+                </>
+              ) : (
+                <>
+                  <Wand2 className="mr-2 h-4 w-4" /> Generate outfits
+                </>
+              )}
+            </Button>
           </Card>
-        ))}
+
+          <h2 className="mt-8 text-lg font-semibold tracking-tight">Recommended Outfits</h2>
+          {outfits.length === 0 && !loading && (
+            <Card className="glass mt-4 border-white/10 p-8 text-center text-sm text-muted-foreground">
+              Set your profile and filters, then generate. Every set is fresh — no repeats within your session.
+            </Card>
+          )}
+          {loading && outfits.length === 0 && (
+            <Card className="glass mt-4 flex items-center justify-center gap-2 border-white/10 p-8 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Analyzing 12 combinations…
+            </Card>
+          )}
+          <div className="mt-4 grid gap-5 md:grid-cols-2">
+            {outfits.map((o, i) => (
+              <OutfitCard
+                key={o.signature + seedRef.current}
+                outfit={o}
+                image={images[i]}
+                onTryOn={() => navigate({ to: "/try-on" })}
+                onDetails={() => toast.message(o.title, { description: buildDetails(o) })}
+              />
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-function ChipGroup({ label, options, value, onChange }: { label: string; options: string[]; value: string; onChange: (v: string) => void }) {
+function buildDetails(o: ScoredOutfit): string {
+  const parts = o.items.map((it) => `${it.name} (${it.color})`).join(" · ");
+  const s = o.scores;
+  return `${parts}\nBody ${s.bodyMatch}% · Occasion ${s.occasionMatch}% · Weather ${s.weatherMatch}% · Style ${s.stylePref}% · Trend ${s.trendMatch}%`;
+}
+
+function OutfitCard({
+  outfit,
+  image,
+  onTryOn,
+  onDetails,
+}: {
+  outfit: ScoredOutfit;
+  image: { src: string; final: boolean } | undefined;
+  onTryOn: () => void;
+  onDetails: () => void;
+}) {
+  return (
+    <Card className="glass group overflow-hidden border-white/10 transition hover:border-fuchsia-500/40 hover:-translate-y-1">
+      <div className="relative aspect-[4/5] overflow-hidden bg-white/5">
+        {image ? (
+          <img
+            src={image.src}
+            alt={outfit.title}
+            className={`absolute inset-0 h-full w-full object-cover transition-[filter,transform] duration-700 ease-out ${
+              image.final ? "blur-0" : "blur-2xl"
+            } group-hover:scale-105`}
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Rendering outfit…
+          </div>
+        )}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+        <div className="absolute top-2 left-2 z-10 flex items-center gap-1 rounded-full glass px-2 py-0.5 text-[10px]">
+          <Sparkles className="h-3 w-3 text-fuchsia-300" /> {outfit.category}
+        </div>
+        <div className="absolute top-2 right-2 z-10 rounded-full glass px-2 py-0.5 text-[10px] font-medium">
+          {outfit.confidence}% match
+        </div>
+      </div>
+      <div className="p-4">
+        <div className="text-sm font-semibold">{outfit.title}</div>
+
+        <div className="mt-2 flex flex-wrap gap-1">
+          <BadgePill>{outfit.category}</BadgePill>
+          <BadgePill>Style: {outfit.scores.stylePref}%</BadgePill>
+          <BadgePill>Weather: {outfit.scores.weatherMatch}%</BadgePill>
+        </div>
+
+        {outfit.colorPalette.length > 0 && (
+          <div className="mt-3 flex items-center gap-1.5">
+            {outfit.colorPalette.map((c, idx) => (
+              <span
+                key={c + idx}
+                className="h-4 w-4 rounded-full border border-white/20"
+                style={{ background: c }}
+                title={c}
+              />
+            ))}
+          </div>
+        )}
+
+        <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
+          {outfit.items.map((it, idx) => (
+            <li key={idx}>
+              • <span className="text-foreground/90">{it.name}</span>{" "}
+              <span className="opacity-60">— {it.color}</span>
+            </li>
+          ))}
+        </ul>
+
+        <div className="mt-3 space-y-2">
+          <Bar label="Body Match" value={outfit.scores.bodyMatch} />
+          <Bar label="Confidence" value={outfit.confidence} accent />
+        </div>
+
+        <div className="mt-4 flex gap-2">
+          <Button
+            size="sm"
+            onClick={onTryOn}
+            className="btn-glow flex-1 bg-gradient-to-r from-fuchsia-500 to-blue-500 text-white hover:opacity-90"
+          >
+            <Camera className="mr-1.5 h-3.5 w-3.5" /> Virtual Try-On
+          </Button>
+          <Button size="sm" variant="ghost" className="glass" onClick={onDetails}>
+            <Info className="mr-1.5 h-3.5 w-3.5" /> Details
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function BadgePill({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-muted-foreground">
+      {children}
+    </span>
+  );
+}
+
+function Bar({ label, value, accent = false }: { label: string; value: number; accent?: boolean }) {
+  const clamped = Math.max(0, Math.min(100, value));
+  return (
+    <div>
+      <div className="flex justify-between text-[10px] text-muted-foreground">
+        <span>{label}</span>
+        <span>{clamped}%</span>
+      </div>
+      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10">
+        <div
+          className={`h-full transition-[width] duration-700 ease-out ${
+            accent
+              ? "bg-gradient-to-r from-fuchsia-500 to-blue-500"
+              : "bg-gradient-to-r from-blue-400 to-fuchsia-400"
+          }`}
+          style={{ width: `${clamped}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ChipGroup({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: string[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
   return (
     <div className="mb-4">
       <div className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
@@ -187,4 +542,89 @@ function ChipGroup({ label, options, value, onChange }: { label: string; options
       </div>
     </div>
   );
+}
+
+function Select({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="mb-3">
+      <div className="mb-1 text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="glass h-9 w-full rounded-md border border-white/10 bg-transparent px-3 text-sm text-foreground outline-none focus:border-fuchsia-500/40"
+      >
+        {options.map((o) => (
+          <option key={o} value={o} className="bg-background text-foreground">
+            {o}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function TextField({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div className="mb-3 flex-1">
+      <div className="mb-1 text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
+      <Input
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        className="glass h-9 border-white/10 bg-transparent text-sm"
+      />
+    </div>
+  );
+}
+
+function NumberField({
+  label,
+  value,
+  onChange,
+  min,
+  max,
+}: {
+  label: string;
+  value: number;
+  onChange: (n: number) => void;
+  min?: number;
+  max?: number;
+}) {
+  return (
+    <div className="mb-3 flex-1">
+      <div className="mb-1 text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
+      <Input
+        type="number"
+        value={value}
+        min={min}
+        max={max}
+        onChange={(e) => onChange(Number(e.target.value) || 0)}
+        className="glass h-9 border-white/10 bg-transparent text-sm"
+      />
+    </div>
+  );
+}
+
+function Row({ children }: { children: React.ReactNode }) {
+  return <div className="flex gap-3">{children}</div>;
 }
