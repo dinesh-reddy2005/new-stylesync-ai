@@ -73,16 +73,22 @@ function DashboardPage() {
       let remaining = Infinity;
       let totalProcessed = 0;
       let totalFailed = 0;
+      let iterations = 0;
       while (remaining > 0) {
         const r = await ingestKb({ data: { batchSize: 25 } });
         totalProcessed += r.processed;
         totalFailed += r.failed;
         remaining = r.remaining;
+        iterations++;
         if (r.processed === 0) break; // avoid infinite loop if all keep failing
       }
-      toast.success(
-        `Knowledge base synced — ${totalProcessed} embedded${totalFailed ? `, ${totalFailed} failed` : ""}.`,
-      );
+      if (totalProcessed === 0 && totalFailed === 0) {
+        toast.success("Knowledge base already up to date — all entries embedded.");
+      } else {
+        toast.success(
+          `Knowledge base synced — ${totalProcessed} embedded${totalFailed ? `, ${totalFailed} failed` : ""}.`,
+        );
+      }
     } catch (e) {
       toast.error(`Sync failed: ${(e as Error).message}`);
     } finally {
