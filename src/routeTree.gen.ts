@@ -20,6 +20,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiTryonImageRouteImport } from './routes/api/tryon-image'
+import { Route as ApiOutfitImageRouteImport } from './routes/api/outfit-image'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
@@ -80,6 +81,11 @@ const ApiTryonImageRoute = ApiTryonImageRouteImport.update({
   path: '/api/tryon-image',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiOutfitImageRoute = ApiOutfitImageRouteImport.update({
+  id: '/api/outfit-image',
+  path: '/api/outfit-image',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const Char91DotwellKnownChar93OauthProtectedResourceRoute =
   Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
     id: '/.well-known/oauth-protected-resource',
@@ -117,6 +123,7 @@ export interface FileRoutesByFullPath {
   '/try-on': typeof TryOnRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/api/outfit-image': typeof ApiOutfitImageRoute
   '/api/tryon-image': typeof ApiTryonImageRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
@@ -134,6 +141,7 @@ export interface FileRoutesByTo {
   '/try-on': typeof TryOnRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/api/outfit-image': typeof ApiOutfitImageRoute
   '/api/tryon-image': typeof ApiTryonImageRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
@@ -152,6 +160,7 @@ export interface FileRoutesById {
   '/try-on': typeof TryOnRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/api/outfit-image': typeof ApiOutfitImageRoute
   '/api/tryon-image': typeof ApiTryonImageRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
@@ -171,6 +180,7 @@ export interface FileRouteTypes {
     | '/try-on'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
+    | '/api/outfit-image'
     | '/api/tryon-image'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
@@ -188,6 +198,7 @@ export interface FileRouteTypes {
     | '/try-on'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
+    | '/api/outfit-image'
     | '/api/tryon-image'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
@@ -205,6 +216,7 @@ export interface FileRouteTypes {
     | '/try-on'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
+    | '/api/outfit-image'
     | '/api/tryon-image'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
@@ -223,6 +235,7 @@ export interface RootRouteChildren {
   TryOnRoute: typeof TryOnRoute
   Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  ApiOutfitImageRoute: typeof ApiOutfitImageRoute
   ApiTryonImageRoute: typeof ApiTryonImageRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
@@ -307,6 +320,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTryonImageRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/outfit-image': {
+      id: '/api/outfit-image'
+      path: '/api/outfit-image'
+      fullPath: '/api/outfit-image'
+      preLoaderRoute: typeof ApiOutfitImageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/.well-known/oauth-protected-resource': {
       id: '/.well-known/oauth-protected-resource'
       path: '/.well-known/oauth-protected-resource'
@@ -352,6 +372,7 @@ const rootRouteChildren: RootRouteChildren = {
   Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
+  ApiOutfitImageRoute: ApiOutfitImageRoute,
   ApiTryonImageRoute: ApiTryonImageRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
