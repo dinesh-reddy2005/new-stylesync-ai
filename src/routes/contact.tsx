@@ -13,6 +13,37 @@ import { submitContact } from "@/lib/contact.functions";
 
 export const Route = createFileRoute("/contact")({
   component: ContactPage,
+  head: () => ({
+    meta: [
+      { title: "Contact StyleSync AI — Get in Touch" },
+      { name: "description", content: "Questions, partnerships, or feedback? Contact the StyleSync AI team — we respond within 24 hours." },
+      { property: "og:title", content: "Contact StyleSync AI — Get in Touch" },
+      { property: "og:description", content: "Reach the StyleSync AI team for questions, partnerships, or feedback." },
+      { property: "og:url", content: "https://new-stylesync-ai.lovable.app/contact" },
+      { name: "twitter:title", content: "Contact StyleSync AI — Get in Touch" },
+      { name: "twitter:description", content: "Reach the StyleSync AI team for questions, partnerships, or feedback." },
+    ],
+    links: [{ rel: "canonical", href: "https://new-stylesync-ai.lovable.app/contact" }],
+    scripts: [{
+      type: "application/ld+json",
+      children: JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "LocalBusiness",
+        name: "StyleSync AI",
+        url: "https://new-stylesync-ai.lovable.app/contact",
+        email: "hello@stylesync.ai",
+        telephone: "+1-555-019-2834",
+        address: {
+          "@type": "PostalAddress",
+          streetAddress: "123 AI Boulevard, Suite 404",
+          addressLocality: "San Francisco",
+          addressRegion: "CA",
+          postalCode: "94105",
+          addressCountry: "US",
+        },
+      }),
+    }],
+  }),
 });
 
 const formSchema = z.object({
