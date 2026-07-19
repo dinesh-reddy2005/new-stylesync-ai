@@ -463,26 +463,53 @@ function TryOn() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function cap(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function Row({
+  label,
+  value,
+  highlight = false,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+}) {
   return (
-    <div className="rounded-lg bg-white/5 px-2 py-1.5">
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className="text-sm font-medium capitalize">{value}</div>
+    <div className="flex items-center justify-between py-2 text-xs">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={`font-medium ${highlight ? "text-fuchsia-300" : ""}`}>{value}</span>
     </div>
   );
 }
 
-function FitRow({ label, value }: { label: string; value: number }) {
+function fitColor(v: number) {
+  if (v >= 95) return "from-fuchsia-500 to-purple-500";
+  if (v >= 85) return "from-blue-500 to-cyan-400";
+  if (v >= 70) return "from-orange-500 to-amber-400";
+  return "from-red-500 to-rose-500";
+}
+
+function FitRow({
+  label,
+  value,
+  strong = false,
+}: {
+  label: string;
+  value: number;
+  strong?: boolean;
+}) {
   const v = Math.max(0, Math.min(100, value));
   return (
     <div>
       <div className="flex justify-between text-xs">
-        <span className="text-muted-foreground">{label}</span>
-        <span className="font-medium">{Math.round(v)}%</span>
+        <span className={strong ? "font-medium" : "text-muted-foreground"}>{label}</span>
+        <span className="font-semibold tabular-nums">{Math.round(v)}%</span>
       </div>
-      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10">
+      <div className={`mt-1.5 overflow-hidden rounded-full bg-white/10 ${strong ? "h-2" : "h-1.5"}`}>
         <div
-          className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 to-blue-500"
+          className={`h-full rounded-full bg-gradient-to-r ${fitColor(v)} transition-[width] duration-700 ease-out`}
           style={{ width: `${v}%` }}
         />
       </div>
