@@ -72,8 +72,6 @@ const outfitTool = {
       properties: {
         outfits: {
           type: "array",
-          minItems: 12,
-          maxItems: 12,
           items: {
             type: "object",
             properties: {
@@ -88,8 +86,6 @@ const outfitTool = {
               },
               items: {
                 type: "array",
-                minItems: 3,
-                maxItems: 6,
                 items: {
                   type: "object",
                   properties: {
@@ -105,13 +101,10 @@ const outfitTool = {
                     color: { type: "string", description: "Named color, e.g. 'Ivory', 'Navy'." },
                   },
                   required: ["category", "name", "color"],
-                  additionalProperties: false,
                 },
               },
               colorPalette: {
                 type: "array",
-                minItems: 2,
-                maxItems: 5,
                 items: { type: "string", description: "Hex color like #1a1a2e" },
               },
               imagePrompt: {
@@ -135,7 +128,6 @@ const outfitTool = {
                   "stylePref",
                   "trendMatch",
                 ],
-                additionalProperties: false,
               },
             },
             required: [
@@ -146,12 +138,10 @@ const outfitTool = {
               "imagePrompt",
               "scores",
             ],
-            additionalProperties: false,
           },
         },
       },
       required: ["outfits"],
-      additionalProperties: false,
     },
   },
 };
@@ -240,14 +230,29 @@ Always call report_outfit_recommendations with all 12 outfits.`;
       throw new Error("AI credits exhausted. Add credits in Settings → Workspace → Usage.");
     if (!res.ok) {
       const t = await res.text().catch(() => "");
-      throw new Error(`Recommendation engine failed (${res.status}): ${t.slice(0, 200)}`);
+      console.error("[recommendations] Gemini API error", {
+        status: res.status,
+        body: t.slice(0, 2000),
+      });
+      throw new Error(
+        `Recommendation engine failed (${res.status}). ${t.slice(0, 300) || "No response body."}`,
+      );
     }
 
     const json = await res.json();
     const args = json?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
-    if (!args) throw new Error("Stylist did not return structured outfits.");
+    if (!args) {
+      console.error("[recommendations] Missing tool_calls in response", JSON.stringify(json).slice(0, 2000));
+      throw new Error("Stylist did not return structured outfits.");
+    }
 
-    const parsed = JSON.parse(args) as { outfits: RawOutfit[] };
+    let parsed: { outfits: RawOutfit[] };
+    try {
+      parsed = JSON.parse(args) as { outfits: RawOutfit[] };
+    } catch (e) {
+      console.error("[recommendations] Failed to parse tool arguments", args);
+      throw new Error("Stylist returned malformed outfit data.");
+    }
     const exclude = new Set(excludeSignatures);
 
     const scored: ScoredOutfit[] = parsed.outfits
