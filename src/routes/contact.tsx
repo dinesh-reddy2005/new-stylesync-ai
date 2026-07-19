@@ -154,9 +154,7 @@ function ContactPage() {
         {/* Form */}
         <Card className="glass-strong neon-border lg:col-span-3 border-white/10">
           <CardHeader>
-            <CardTitle asChild>
-              <h2 className="text-lg font-semibold">Send a Message</h2>
-            </CardTitle>
+            <h2 className="text-lg font-semibold">Send a Message</h2>
             <CardDescription className="text-sm text-muted-foreground">
               Fill out the form and we'll get back within 24 hours.
             </CardDescription>
