@@ -1,0 +1,13 @@
+# StyleSync AI
+
+> AI-powered fashion assistant for virtual try-on, smart outfit recommendations, and body-fit analysis.
+
+StyleSync AI helps you discover your style with a personal AI stylist. Upload a photo for a photorealistic virtual try-on, generate outfit ideas tailored to occasion and weather, and get body-fit analysis so what you order actually fits.
+
+## Pages
+
+- [Home](/): Overview of StyleSync AI's features and styling suite.
+- [Virtual AI Try-On](/try-on): Upload a photo and preview outfits with photorealistic AI rendering and body-fit analysis.
+- [Smart Recommendations](/recommendations): Generate outfit ideas tailored to occasion, weather, and personal style.
+- [AI Style Studio](/generate): Ask the AI stylist for outfit ideas and styling advice.
+- [Contact](/contact): Reach the StyleSync AI team for questions, partnerships, or feedback.
