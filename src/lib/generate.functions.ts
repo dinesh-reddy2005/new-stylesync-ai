@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const InputSchema = z.object({
   prompt: z.string().min(1).max(4000),
@@ -9,6 +10,7 @@ const CONFIG_HELP =
   "AI is not configured. Add a LOVABLE_API_KEY (Lovable AI Gateway) or GEMINI_API_KEY (direct Google AI Studio) in your project secrets.";
 
 export const generateAI = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => InputSchema.parse(data))
   .handler(async ({ data }) => {
     const lovableKey = process.env.LOVABLE_API_KEY;
