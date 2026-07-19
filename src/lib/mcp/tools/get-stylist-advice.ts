@@ -17,6 +17,12 @@ export default defineTool({
   },
   annotations: { readOnlyHint: true, openWorldHint: true },
   handler: async ({ prompt }: { prompt: string }, _ctx: ToolContext) => {
+    if (!_ctx.isAuthenticated()) {
+      return {
+        content: [{ type: "text", text: "Not authenticated. Sign in to use the AI stylist." }],
+        isError: true,
+      };
+    }
     const key = process.env.LOVABLE_API_KEY;
     if (!key) {
       return {
