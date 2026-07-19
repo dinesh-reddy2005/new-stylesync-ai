@@ -12,6 +12,18 @@ import { analyzeBody, type BodyAnalysis } from "@/lib/tryon.functions";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/try-on")({
+  head: () => ({
+    meta: [
+      { title: "Virtual AI Try-On — StyleSync AI" },
+      { name: "description", content: "Upload your photo and preview outfits instantly with photorealistic AI rendering and body-fit analysis." },
+      { property: "og:title", content: "Virtual AI Try-On — StyleSync AI" },
+      { property: "og:description", content: "Upload your photo and preview outfits instantly with photorealistic AI rendering and body-fit analysis." },
+      { property: "og:url", content: "https://new-stylesync-ai.lovable.app/try-on" },
+      { name: "twitter:title", content: "Virtual AI Try-On — StyleSync AI" },
+      { name: "twitter:description", content: "Upload your photo and preview outfits instantly with photorealistic AI rendering and body-fit analysis." },
+    ],
+    links: [{ rel: "canonical", href: "https://new-stylesync-ai.lovable.app/try-on" }],
+  }),
   component: TryOn,
 });
 
