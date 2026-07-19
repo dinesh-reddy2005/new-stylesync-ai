@@ -2,6 +2,9 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { ingestPendingKnowledge } from "@/lib/rag.functions";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Camera, Wand2, Shirt, Ruler, Loader2, LogOut, Sparkles,
-  Search, Heart, Clock, Bookmark, Plus, ImageIcon, Settings, TrendingUp, Filter,
+  Search, Heart, Clock, Bookmark, Plus, ImageIcon, Settings, TrendingUp, Filter, Database,
 } from "lucide-react";
 
 export const Route = createFileRoute("/dashboard")({
@@ -61,6 +64,31 @@ function DashboardPage() {
   const [filter, setFilter] = useState<Filter>("All");
   const [generations, setGenerations] = useState<Generation[]>([]);
   const [genLoading, setGenLoading] = useState(true);
+  const [syncingKb, setSyncingKb] = useState(false);
+  const ingestKb = useServerFn(ingestPendingKnowledge);
+
+  const handleSyncKnowledge = async () => {
+    setSyncingKb(true);
+    try {
+      let remaining = Infinity;
+      let totalProcessed = 0;
+      let totalFailed = 0;
+      while (remaining > 0) {
+        const r = await ingestKb({ data: { batchSize: 25 } });
+        totalProcessed += r.processed;
+        totalFailed += r.failed;
+        remaining = r.remaining;
+        if (r.processed === 0) break; // avoid infinite loop if all keep failing
+      }
+      toast.success(
+        `Knowledge base synced — ${totalProcessed} embedded${totalFailed ? `, ${totalFailed} failed` : ""}.`,
+      );
+    } catch (e) {
+      toast.error(`Sync failed: ${(e as Error).message}`);
+    } finally {
+      setSyncingKb(false);
+    }
+  };
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/login", replace: true });
@@ -157,6 +185,9 @@ function DashboardPage() {
             </Button>
             <Button onClick={handleSignOut} disabled={signingOut} size="sm" variant="outline" className="glass border-white/10 hover:bg-white/5">
               {signingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <><LogOut className="h-4 w-4" /> Sign out</>}
+            </Button>
+            <Button onClick={handleSyncKnowledge} disabled={syncingKb} size="sm" className="bg-gradient-to-r from-fuchsia-500 to-blue-500 text-white">
+              {syncingKb ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Database className="h-4 w-4" /> Sync AI Knowledge</>}
             </Button>
           </div>
         </div>
