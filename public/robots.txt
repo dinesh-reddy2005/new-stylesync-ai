@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /login
+Disallow: /signup
+Disallow: /api/
+
+Sitemap: https://new-stylesync-ai.lovable.app/sitemap.xml
