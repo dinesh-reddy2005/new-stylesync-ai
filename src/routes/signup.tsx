@@ -9,11 +9,17 @@ import { Label } from "@/components/ui/label";
 import { AuthCard, GoogleIcon } from "@/components/auth-card";
 import { Loader2 } from "lucide-react";
 
-export const Route = createFileRoute("/signup")({ component: SignupPage });
+export const Route = createFileRoute("/signup")({
+  component: SignupPage,
+  validateSearch: (s: Record<string, unknown>) => ({
+    next: typeof s.next === "string" && s.next.startsWith("/") && !s.next.startsWith("//") ? s.next : undefined,
+  }),
+});
 
 function SignupPage() {
   const navigate = useNavigate();
   const { session, loading: authLoading } = useAuth();
+  const { next } = Route.useSearch();
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,8 +28,11 @@ function SignupPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && session) navigate({ to: "/dashboard", replace: true });
-  }, [session, authLoading, navigate]);
+    if (!authLoading && session) {
+      if (next) window.location.replace(next);
+      else navigate({ to: "/dashboard", replace: true });
+    }
+  }, [session, authLoading, navigate, next]);
 
   const handleEmail = async (e: FormEvent) => {
     e.preventDefault();
@@ -34,7 +43,7 @@ function SignupPage() {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/dashboard`,
+        emailRedirectTo: `${window.location.origin}${next ?? "/dashboard"}`,
         data: { display_name: displayName },
       },
     });
@@ -44,7 +53,8 @@ function SignupPage() {
       return;
     }
     if (data.session) {
-      navigate({ to: "/dashboard", replace: true });
+      if (next) window.location.replace(next);
+      else navigate({ to: "/dashboard", replace: true });
     } else {
       setInfo("Check your email to confirm your account.");
     }
@@ -53,7 +63,9 @@ function SignupPage() {
   const handleGoogle = async () => {
     setError(null);
     setLoading(true);
-    const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/dashboard" });
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin + (next ?? "/dashboard"),
+    });
     if (result.error) {
       setError(result.error.message ?? "Google sign-in failed");
       setLoading(false);
