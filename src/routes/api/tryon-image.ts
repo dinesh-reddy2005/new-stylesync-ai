@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 type Body = {
   imageDataUrl: string;
   outfitPrompt: string;
+  outfitImageDataUrl?: string;
 };
 
 export const Route = createFileRoute("/api/tryon-image")({
@@ -63,15 +64,29 @@ export const Route = createFileRoute("/api/tryon-image")({
         }
 
         const prompt = [
-          "Realistic virtual try-on. Re-dress the person in the photo with the outfit described below.",
+          "Realistic virtual try-on.",
+          body.outfitImageDataUrl
+            ? "Image 1 is the person. Image 2 is the exact garment reference. Dress the person in image 1 with the EXACT clothing shown in image 2."
+            : "Re-dress the person in the photo with the outfit described below.",
           "Strict rules:",
-          "- Preserve the person's exact face, hairstyle, skin tone, body proportions, pose, and background.",
-          "- Only replace the clothing. Align garments with shoulders, torso, and waist naturally.",
-          "- Photorealistic fabric, lighting, and shadows that match the original photo.",
-          "- No text, no watermarks, no extra people.",
+          "- Preserve the person's exact face, hairstyle, skin tone, body proportions, pose, and background from image 1.",
+          "- Reproduce the garment(s) with the SAME colors, fabric textures, patterns, sleeves, collars, trousers, dress cut, shoes, and accessories as shown in the reference. Do NOT substitute or reinterpret the outfit.",
+          "- Align garments naturally with the person's shoulders, torso, waist, and legs. Realistic lighting and shadows.",
+          "- No text, no watermarks, no extra people, no background changes.",
           "",
-          `Outfit: ${body.outfitPrompt}`,
+          `Outfit description (for reference): ${body.outfitPrompt}`,
         ].join("\n");
+
+        const userContent: Array<Record<string, unknown>> = [
+          { type: "text", text: prompt },
+          { type: "image_url", image_url: { url: body.imageDataUrl } },
+        ];
+        if (body.outfitImageDataUrl?.startsWith("data:image/")) {
+          userContent.push({
+            type: "image_url",
+            image_url: { url: body.outfitImageDataUrl },
+          });
+        }
 
         const upstream = await fetch(
           "https://ai.gateway.lovable.dev/v1/images/generations",
@@ -86,10 +101,7 @@ export const Route = createFileRoute("/api/tryon-image")({
               messages: [
                 {
                   role: "user",
-                  content: [
-                    { type: "text", text: prompt },
-                    { type: "image_url", image_url: { url: body.imageDataUrl } },
-                  ],
+                  content: userContent,
                 },
               ],
               modalities: ["image", "text"],
