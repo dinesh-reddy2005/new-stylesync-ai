@@ -102,7 +102,8 @@ function Recs() {
       </div>
 
       {/* Controls */}
-      <Card className="glass-strong mt-10 border-white/10 p-5">
+      <h2 className="mt-10 text-lg font-semibold tracking-tight">Style Preferences</h2>
+      <Card className="glass-strong mt-4 border-white/10 p-5">
         <ChipGroup label="Occasion" options={occasions} value={occasion} onChange={setOccasion} />
         <ChipGroup label="Weather" options={weathers} value={weather} onChange={setWeather} />
         <ChipGroup label="Style" options={styles} value={style} onChange={setStyle} />
@@ -115,7 +116,8 @@ function Recs() {
       </Card>
 
       {/* Results */}
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <h2 className="mt-10 text-lg font-semibold tracking-tight">Recommended Outfits</h2>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {results.map((o, i) => (
           <Card key={o.name + i + seed} className="glass group overflow-hidden border-white/10 transition hover:border-fuchsia-500/40 hover:-translate-y-1">
             <div className="relative aspect-[4/5] overflow-hidden">
