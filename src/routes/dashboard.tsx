@@ -12,7 +12,20 @@ import {
   Search, Heart, Clock, Bookmark, Plus, ImageIcon, Settings, TrendingUp, Filter,
 } from "lucide-react";
 
-export const Route = createFileRoute("/dashboard")({ component: DashboardPage });
+export const Route = createFileRoute("/dashboard")({
+  component: DashboardPage,
+  head: () => ({
+    meta: [
+      { title: "Your Style Dashboard — StyleSync AI" },
+      { name: "description", content: "Your AI generations, saved looks, and quick actions in one place." },
+      { property: "og:title", content: "Your Style Dashboard — StyleSync AI" },
+      { property: "og:description", content: "Your AI generations, saved looks, and quick actions in one place." },
+      { property: "og:url", content: "https://new-stylesync-ai.lovable.app/dashboard" },
+      { name: "robots", content: "noindex,nofollow" },
+    ],
+    links: [{ rel: "canonical", href: "https://new-stylesync-ai.lovable.app/dashboard" }],
+  }),
+});
 
 type Profile = { display_name: string | null; avatar_url: string | null };
 
@@ -129,11 +142,11 @@ function DashboardPage() {
               {profileLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : name.charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Welcome back</p>
+              <h1 className="text-xl font-semibold md:text-2xl">Your Style Dashboard</h1>
               {profileLoading ? (
-                <Skeleton className="mt-1 h-6 w-40" />
+                <Skeleton className="mt-1 h-4 w-40" />
               ) : (
-                <h1 className="truncate text-xl font-semibold md:text-2xl">{name}</h1>
+                <p className="truncate text-sm text-muted-foreground">Welcome back, {name}</p>
               )}
               <p className="truncate text-xs text-muted-foreground">{user.email}</p>
             </div>

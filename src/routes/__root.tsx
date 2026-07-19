@@ -78,15 +78,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "StyleSync AI — Your Personal AI Stylist" },
       { name: "description", content: "AI-powered fashion assistant for virtual try-on, smart outfit recommendations, and body-fit analysis." },
       { name: "author", content: "StyleSync AI" },
-      { property: "og:title", content: "StyleSync AI — Your Personal AI Stylist" },
-      { property: "og:description", content: "AI-powered fashion assistant for virtual try-on, smart outfit recommendations, and body-fit analysis." },
       { property: "og:type", content: "website" },
+      { property: "og:site_name", content: "StyleSync AI" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
-      { name: "twitter:title", content: "StyleSync AI — Your Personal AI Stylist" },
-      { name: "twitter:description", content: "AI-powered fashion assistant for virtual try-on, smart outfit recommendations, and body-fit analysis." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/a91c964e-0ece-4717-962f-eae9fc8b6797/id-preview-637d28ea--95f501ee-2457-4ee3-9ec3-3e57446f16cf.lovable.app-1779789352571.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/a91c964e-0ece-4717-962f-eae9fc8b6797/id-preview-637d28ea--95f501ee-2457-4ee3-9ec3-3e57446f16cf.lovable.app-1779789352571.png" },
     ],
     links: [
       {
@@ -94,6 +89,27 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: appCss,
       },
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: "StyleSync AI",
+          url: "https://new-stylesync-ai.lovable.app",
+          description: "AI-powered fashion assistant for virtual try-on, smart outfit recommendations, and body-fit analysis.",
+        }),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "StyleSync AI",
+          url: "https://new-stylesync-ai.lovable.app",
+        }),
+      },
     ],
   }),
   shellComponent: RootShell,

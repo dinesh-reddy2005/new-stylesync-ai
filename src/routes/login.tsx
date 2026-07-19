@@ -14,6 +14,17 @@ export const Route = createFileRoute("/login")({
   validateSearch: (s: Record<string, unknown>) => ({
     next: typeof s.next === "string" && s.next.startsWith("/") && !s.next.startsWith("//") ? s.next : undefined,
   }),
+  head: () => ({
+    meta: [
+      { title: "Sign in — StyleSync AI" },
+      { name: "description", content: "Sign in to StyleSync AI to access your AI stylist, saved looks, and virtual try-on." },
+      { property: "og:title", content: "Sign in — StyleSync AI" },
+      { property: "og:description", content: "Sign in to access your AI stylist, saved looks, and virtual try-on." },
+      { property: "og:url", content: "https://new-stylesync-ai.lovable.app/login" },
+      { name: "robots", content: "noindex,nofollow" },
+    ],
+    links: [{ rel: "canonical", href: "https://new-stylesync-ai.lovable.app/login" }],
+  }),
 });
 
 function LoginPage() {

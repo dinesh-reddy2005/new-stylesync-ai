@@ -13,6 +13,37 @@ import { submitContact } from "@/lib/contact.functions";
 
 export const Route = createFileRoute("/contact")({
   component: ContactPage,
+  head: () => ({
+    meta: [
+      { title: "Contact StyleSync AI — Get in Touch" },
+      { name: "description", content: "Questions, partnerships, or feedback? Contact the StyleSync AI team — we respond within 24 hours." },
+      { property: "og:title", content: "Contact StyleSync AI — Get in Touch" },
+      { property: "og:description", content: "Reach the StyleSync AI team for questions, partnerships, or feedback." },
+      { property: "og:url", content: "https://new-stylesync-ai.lovable.app/contact" },
+      { name: "twitter:title", content: "Contact StyleSync AI — Get in Touch" },
+      { name: "twitter:description", content: "Reach the StyleSync AI team for questions, partnerships, or feedback." },
+    ],
+    links: [{ rel: "canonical", href: "https://new-stylesync-ai.lovable.app/contact" }],
+    scripts: [{
+      type: "application/ld+json",
+      children: JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "LocalBusiness",
+        name: "StyleSync AI",
+        url: "https://new-stylesync-ai.lovable.app/contact",
+        email: "hello@stylesync.ai",
+        telephone: "+1-555-019-2834",
+        address: {
+          "@type": "PostalAddress",
+          streetAddress: "123 AI Boulevard, Suite 404",
+          addressLocality: "San Francisco",
+          addressRegion: "CA",
+          postalCode: "94105",
+          addressCountry: "US",
+        },
+      }),
+    }],
+  }),
 });
 
 const formSchema = z.object({
@@ -81,6 +112,7 @@ function ContactPage() {
       <div className="mt-12 grid gap-8 lg:grid-cols-5 lg:gap-12">
         {/* Info Cards */}
         <div className="flex flex-col gap-4 lg:col-span-2">
+          <h2 className="text-lg font-semibold tracking-tight">Contact Information</h2>
           <Card className="glass border-white/10">
             <CardContent className="flex items-start gap-4 p-5">
               <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-fuchsia-500/20 to-blue-500/20 border border-white/10">
@@ -122,7 +154,7 @@ function ContactPage() {
         {/* Form */}
         <Card className="glass-strong neon-border lg:col-span-3 border-white/10">
           <CardHeader>
-            <CardTitle className="text-lg font-semibold">Send a message</CardTitle>
+            <h2 className="text-lg font-semibold">Send a Message</h2>
             <CardDescription className="text-sm text-muted-foreground">
               Fill out the form and we'll get back within 24 hours.
             </CardDescription>

@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TryOnRouteImport } from './routes/try-on'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as RecommendationsRouteImport } from './routes/recommendations'
 import { Route as McpRouteImport } from './routes/mcp'
@@ -27,6 +28,11 @@ import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.
 const TryOnRoute = TryOnRouteImport.update({
   id: '/try-on',
   path: '/try-on',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignupRoute = SignupRouteImport.update({
@@ -107,6 +113,7 @@ export interface FileRoutesByFullPath {
   '/mcp': typeof McpRoute
   '/recommendations': typeof RecommendationsRoute
   '/signup': typeof SignupRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/try-on': typeof TryOnRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
@@ -123,6 +130,7 @@ export interface FileRoutesByTo {
   '/mcp': typeof McpRoute
   '/recommendations': typeof RecommendationsRoute
   '/signup': typeof SignupRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/try-on': typeof TryOnRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
@@ -140,6 +148,7 @@ export interface FileRoutesById {
   '/mcp': typeof McpRoute
   '/recommendations': typeof RecommendationsRoute
   '/signup': typeof SignupRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/try-on': typeof TryOnRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
@@ -158,6 +167,7 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/recommendations'
     | '/signup'
+    | '/sitemap.xml'
     | '/try-on'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
@@ -174,6 +184,7 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/recommendations'
     | '/signup'
+    | '/sitemap.xml'
     | '/try-on'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
@@ -190,6 +201,7 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/recommendations'
     | '/signup'
+    | '/sitemap.xml'
     | '/try-on'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
@@ -207,6 +219,7 @@ export interface RootRouteChildren {
   McpRoute: typeof McpRoute
   RecommendationsRoute: typeof RecommendationsRoute
   SignupRoute: typeof SignupRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TryOnRoute: typeof TryOnRoute
   Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
@@ -222,6 +235,13 @@ declare module '@tanstack/react-router' {
       path: '/try-on'
       fullPath: '/try-on'
       preLoaderRoute: typeof TryOnRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/signup': {
@@ -327,6 +347,7 @@ const rootRouteChildren: RootRouteChildren = {
   McpRoute: McpRoute,
   RecommendationsRoute: RecommendationsRoute,
   SignupRoute: SignupRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   TryOnRoute: TryOnRoute,
   Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
