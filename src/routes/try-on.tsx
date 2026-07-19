@@ -469,6 +469,23 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
+const outfitDataUrlCache = new Map<string, string>();
+async function urlToDataUrl(url: string): Promise<string> {
+  const cached = outfitDataUrlCache.get(url);
+  if (cached) return cached;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Failed to load outfit image.");
+  const blob = await res.blob();
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error ?? new Error("Failed to read outfit image"));
+    reader.readAsDataURL(blob);
+  });
+  outfitDataUrlCache.set(url, dataUrl);
+  return dataUrl;
+}
+
 async function streamTryOn(
   imageDataUrl: string,
   outfitPrompt: string,
