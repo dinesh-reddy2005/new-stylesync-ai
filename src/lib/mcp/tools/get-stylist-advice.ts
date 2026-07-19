@@ -1,5 +1,6 @@
 import { defineTool, type ToolContext } from "@lovable.dev/mcp-js";
 import { z } from "zod";
+import { retrieveKnowledge } from "@/lib/rag.server";
 
 export default defineTool({
   name: "get_stylist_advice",
@@ -23,6 +24,20 @@ export default defineTool({
         isError: true,
       };
     }
+    // RAG: retrieve top fashion knowledge chunks to ground the advice.
+    let ragContext = "";
+    try {
+      const hits = await retrieveKnowledge(prompt, 4);
+      if (hits.length) {
+        ragContext =
+          "\n\nRelevant StyleSync knowledge base excerpts (use to ground your answer):\n" +
+          hits
+            .map((h, i) => `[${i + 1}] ${h.title} (${h.category}): ${h.content}`)
+            .join("\n");
+      }
+    } catch (e) {
+      console.warn("[stylist-advice] RAG retrieval skipped:", (e as Error).message);
+    }
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -35,7 +50,8 @@ export default defineTool({
           {
             role: "system",
             content:
-              "You are StyleSync AI, a friendly expert fashion stylist. Give concrete, personalized outfit recommendations. Cover top, bottom, footwear, accessories, color palette, and a short reasoning. Keep it under 250 words. Use markdown.",
+              "You are StyleSync AI, a friendly expert fashion stylist. Give concrete, personalized outfit recommendations. Cover top, bottom, footwear, accessories, color palette, and a short reasoning. Keep it under 250 words. Use markdown." +
+              ragContext,
           },
           { role: "user", content: prompt },
         ],

@@ -1,6 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
 import { defineTool, type ToolContext } from "@lovable.dev/mcp-js";
 import { z } from "zod";
+import { retrieveKnowledge } from "@/lib/rag.server";
 
 export default defineTool({
   name: "search_fashion_knowledge",
@@ -15,26 +15,18 @@ export default defineTool({
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async (
     input: { query: string; category?: string; limit?: number },
-    ctx: ToolContext,
+    _ctx: ToolContext,
   ) => {
     const limit = input.limit ?? 5;
-    const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_PUBLISHABLE_KEY!, {
-      global: ctx.getToken()
-        ? { headers: { Authorization: `Bearer ${ctx.getToken()}` } }
-        : undefined,
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    let q = supabase
-      .from("fashion_knowledge_base")
-      .select("id, title, category, content, keywords, source")
-      .or(
-        `title.ilike.%${input.query}%,content.ilike.%${input.query}%,keywords.ilike.%${input.query}%`,
-      )
-      .limit(limit);
-    if (input.category) q = q.eq("category", input.category);
-    const { data, error } = await q;
-    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    const results = data ?? [];
+    let results: Awaited<ReturnType<typeof retrieveKnowledge>> = [];
+    try {
+      results = await retrieveKnowledge(input.query, limit, input.category);
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Search failed: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
     return {
       content: [
         {
@@ -43,7 +35,7 @@ export default defineTool({
             ? results
                 .map(
                   (r) =>
-                    `### ${r.title} (${r.category})\n${r.content?.slice(0, 400) ?? ""}${(r.content?.length ?? 0) > 400 ? "…" : ""}`,
+                    `### ${r.title} (${r.category}) — ${(r.similarity * 100).toFixed(0)}% match\n${r.content?.slice(0, 400) ?? ""}${(r.content?.length ?? 0) > 400 ? "…" : ""}`,
                 )
                 .join("\n\n")
             : "No matching fashion knowledge found.",
