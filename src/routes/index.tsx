@@ -11,6 +11,18 @@ import aestheticImg from "@/assets/style-aesthetic.jpg";
 
 export const Route = createFileRoute("/")({
   component: Index,
+  head: () => ({
+    meta: [
+      { title: "StyleSync AI — Your Personal AI Stylist" },
+      { name: "description", content: "AI-powered fashion assistant for virtual try-on, smart outfit recommendations, and body-fit analysis. Discover your style with StyleSync AI." },
+      { property: "og:title", content: "StyleSync AI — Your Personal AI Stylist" },
+      { property: "og:description", content: "AI-powered fashion assistant for virtual try-on, smart outfit recommendations, and body-fit analysis." },
+      { property: "og:url", content: "https://new-stylesync-ai.lovable.app/" },
+      { name: "twitter:title", content: "StyleSync AI — Your Personal AI Stylist" },
+      { name: "twitter:description", content: "AI-powered fashion assistant for virtual try-on, smart outfit recommendations, and body-fit analysis." },
+    ],
+    links: [{ rel: "canonical", href: "https://new-stylesync-ai.lovable.app/" }],
+  }),
 });
 
 const features = [
