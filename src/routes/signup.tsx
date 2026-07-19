@@ -14,6 +14,17 @@ export const Route = createFileRoute("/signup")({
   validateSearch: (s: Record<string, unknown>) => ({
     next: typeof s.next === "string" && s.next.startsWith("/") && !s.next.startsWith("//") ? s.next : undefined,
   }),
+  head: () => ({
+    meta: [
+      { title: "Create your account — StyleSync AI" },
+      { name: "description", content: "Join StyleSync AI to unlock virtual try-on, smart recommendations, and your personal AI stylist." },
+      { property: "og:title", content: "Create your account — StyleSync AI" },
+      { property: "og:description", content: "Join StyleSync AI to unlock virtual try-on, smart recommendations, and your personal AI stylist." },
+      { property: "og:url", content: "https://new-stylesync-ai.lovable.app/signup" },
+      { name: "robots", content: "noindex,nofollow" },
+    ],
+    links: [{ rel: "canonical", href: "https://new-stylesync-ai.lovable.app/signup" }],
+  }),
 });
 
 function SignupPage() {
