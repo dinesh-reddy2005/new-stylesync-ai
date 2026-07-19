@@ -112,6 +112,7 @@ function ContactPage() {
       <div className="mt-12 grid gap-8 lg:grid-cols-5 lg:gap-12">
         {/* Info Cards */}
         <div className="flex flex-col gap-4 lg:col-span-2">
+          <h2 className="text-lg font-semibold tracking-tight">Contact Information</h2>
           <Card className="glass border-white/10">
             <CardContent className="flex items-start gap-4 p-5">
               <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-fuchsia-500/20 to-blue-500/20 border border-white/10">
@@ -153,7 +154,9 @@ function ContactPage() {
         {/* Form */}
         <Card className="glass-strong neon-border lg:col-span-3 border-white/10">
           <CardHeader>
-            <CardTitle className="text-lg font-semibold">Send a message</CardTitle>
+            <CardTitle asChild>
+              <h2 className="text-lg font-semibold">Send a Message</h2>
+            </CardTitle>
             <CardDescription className="text-sm text-muted-foreground">
               Fill out the form and we'll get back within 24 hours.
             </CardDescription>
