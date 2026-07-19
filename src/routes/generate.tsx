@@ -18,7 +18,21 @@ import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { generateAI } from "@/lib/generate.functions";
 
-export const Route = createFileRoute("/generate")({ component: GeneratePage });
+export const Route = createFileRoute("/generate")({
+  component: GeneratePage,
+  head: () => ({
+    meta: [
+      { title: "AI Style Studio — Generate Fashion Advice | StyleSync AI" },
+      { name: "description", content: "Ask the AI stylist anything — outfit ideas, styling tips, and personalized fashion advice powered by Gemini." },
+      { property: "og:title", content: "AI Style Studio — StyleSync AI" },
+      { property: "og:description", content: "Ask the AI stylist for outfit ideas, styling tips, and personalized fashion advice." },
+      { property: "og:url", content: "https://new-stylesync-ai.lovable.app/generate" },
+      { name: "twitter:title", content: "AI Style Studio — StyleSync AI" },
+      { name: "twitter:description", content: "Ask the AI stylist for outfit ideas, styling tips, and personalized fashion advice." },
+    ],
+    links: [{ rel: "canonical", href: "https://new-stylesync-ai.lovable.app/generate" }],
+  }),
+});
 
 const SUGGESTIONS = [
   "Design a capsule wardrobe for a Tokyo weekend trip",
