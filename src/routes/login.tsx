@@ -9,19 +9,32 @@ import { Label } from "@/components/ui/label";
 import { AuthCard, GoogleIcon } from "@/components/auth-card";
 import { Loader2 } from "lucide-react";
 
-export const Route = createFileRoute("/login")({ component: LoginPage });
+export const Route = createFileRoute("/login")({
+  component: LoginPage,
+  validateSearch: (s: Record<string, unknown>) => ({
+    next: typeof s.next === "string" && s.next.startsWith("/") && !s.next.startsWith("//") ? s.next : undefined,
+  }),
+});
 
 function LoginPage() {
   const navigate = useNavigate();
   const { session, loading: authLoading } = useAuth();
+  const { next } = Route.useSearch();
+  const destination = next ?? "/dashboard";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && session) navigate({ to: "/dashboard", replace: true });
-  }, [session, authLoading, navigate]);
+    if (!authLoading && session) {
+      if (next) {
+        window.location.replace(next);
+      } else {
+        navigate({ to: "/dashboard", replace: true });
+      }
+    }
+  }, [session, authLoading, navigate, next]);
 
   const handleEmail = async (e: FormEvent) => {
     e.preventDefault();
@@ -35,12 +48,16 @@ function LoginPage() {
   const handleGoogle = async () => {
     setError(null);
     setLoading(true);
-    const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/dashboard" });
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin + (next ?? "/dashboard"),
+    });
     if (result.error) {
       setError(result.error.message ?? "Google sign-in failed");
       setLoading(false);
     }
   };
+
+  void destination;
 
   return (
     <AuthCard title="Welcome back" subtitle="Sign in to your AI stylist.">
