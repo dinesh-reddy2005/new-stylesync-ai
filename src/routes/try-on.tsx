@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Upload, Wand2, Camera, Ruler, Sparkles, RefreshCw, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { analyzeBody, type BodyAnalysis } from "@/lib/tryon.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/try-on")({
   component: TryOn,
@@ -411,9 +412,15 @@ async function streamTryOn(
   outfitPrompt: string,
   onFrame: (dataUrl: string, isFinal: boolean) => void,
 ): Promise<void> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData.session?.access_token;
+  if (!token) throw new Error("Please sign in to use virtual try-on.");
   const res = await fetch("/api/tryon-image", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
     body: JSON.stringify({ imageDataUrl, outfitPrompt }),
   });
   if (!res.ok || !res.body) {
