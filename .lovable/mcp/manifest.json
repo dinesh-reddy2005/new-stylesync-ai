@@ -1,0 +1,129 @@
+{
+  "version": 1,
+  "sdk_version": "0.23.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://pecpbakhjranwxifqgyd.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "stylesync-ai-mcp",
+      "version": "0.1.0",
+      "title": "StyleSync AI"
+    },
+    "tools": [
+      {
+        "name": "get_my_profile",
+        "title": "Get my StyleSync profile",
+        "description": "Return the signed-in user's StyleSync AI profile (display name, avatar, email).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "update_my_profile",
+        "title": "Update my StyleSync profile",
+        "description": "Update the signed-in user's display name and/or avatar URL on their StyleSync AI profile.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "display_name": {
+              "description": "New display name.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "avatar_url": {
+              "description": "New avatar image URL.",
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_stylist_advice",
+        "title": "Get AI stylist advice",
+        "description": "Ask StyleSync AI for personalized outfit or styling advice. Provide the situation (occasion, weather, body type, preferences) and get a fashion recommendation.",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": true
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "prompt": {
+              "type": "string",
+              "minLength": 4,
+              "maxLength": 2000,
+              "description": "Describe the occasion, weather, body type, style preferences, or specific styling question."
+            }
+          },
+          "required": [
+            "prompt"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "search_fashion_knowledge",
+        "title": "Search StyleSync fashion knowledge",
+        "description": "Search the StyleSync AI fashion knowledge base (body analysis, outfits, color matching, styling guidance) by keyword.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 200,
+              "description": "Keywords to search across titles, content, and keywords."
+            },
+            "category": {
+              "description": "Optional category filter, e.g. 'Body Analysis'.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "limit": {
+              "description": "Max results to return (default 5).",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20
+            }
+          },
+          "required": [
+            "query"
+          ]
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
