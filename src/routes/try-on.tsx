@@ -370,35 +370,65 @@ function TryOn() {
             )}
           </Card>
 
-          <Card className="glass border-white/10 p-5">
+          <Card className="glass-strong border-white/10 p-5 rounded-3xl">
             <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <Ruler className="h-4 w-4" /> Body-Fit Analysis
             </h3>
             {analyzing ? (
               <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" /> Analyzing body structure…
+                <Loader2 className="h-4 w-4 animate-spin" /> Detecting body landmarks…
               </div>
             ) : analysis ? (
-              <div className="mt-4 space-y-4">
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <Stat label="Shoulders" value={analysis.shoulders} />
-                  <Stat label="Waist" value={analysis.waist} />
-                  <Stat label="Torso" value={analysis.torso} />
-                  <Stat label="Body type" value={analysis.bodyType} />
-                  <Stat label="Height ratio" value={`${analysis.heightRatio.toFixed(1)} heads`} />
-                  <Stat label="Confidence" value={`${Math.round(analysis.confidence)}%`} />
+              <div className="mt-4 space-y-5">
+                {/* Measurements */}
+                <div>
+                  <p className="mb-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Measurements</p>
+                  <div className="divide-y divide-white/5 rounded-2xl bg-white/5 px-3">
+                    <Row label="Shoulders" value={cap(analysis.shoulders)} />
+                    <Row label="Chest" value={`${Math.round(analysis.proportions.chestCm)} cm`} />
+                    <Row label="Waist" value={`${Math.round(analysis.proportions.waistCm)} cm`} />
+                    <Row label="Hips" value={`${Math.round(analysis.proportions.hipCm)} cm`} />
+                    <Row label="Torso" value={`${Math.round(analysis.proportions.torsoLengthCm)} cm`} />
+                    <Row label="Leg length" value={`${Math.round(analysis.proportions.legLengthCm)} cm`} />
+                    <Row label="Height ratio" value={`${analysis.heightRatio.toFixed(1)} heads`} />
+                    <Row label="Shoulder / Waist" value={analysis.shoulderToWaist.toFixed(2)} />
+                    <Row label="Waist / Hip" value={analysis.waistToHip.toFixed(2)} />
+                    <Row label="Body type" value={analysis.bodyType} highlight />
+                    <Row label="Symmetry" value={`${Math.round(analysis.symmetryScore)}%`} />
+                    <Row label="Confidence" value={`${Math.round(analysis.confidence)}%`} />
+                  </div>
                 </div>
-                <FitRow label="Shoulder fit" value={analysis.measurements.shoulderFit} />
-                <FitRow label="Waist fit" value={analysis.measurements.waistFit} />
-                <FitRow label="Length" value={analysis.measurements.lengthFit} />
-                <FitRow label="Overall comfort" value={analysis.measurements.comfort} />
-                <div className="rounded-xl glass-strong p-3 text-sm">
-                  <span className="text-muted-foreground">Recommended size: </span>
-                  <span className="font-medium text-fuchsia-300">{analysis.recommendedSize}</span>
+
+                {/* Fit scores */}
+                <div>
+                  <p className="mb-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Fit Scores</p>
+                  <div className="space-y-3">
+                    <FitRow label="Shoulder fit" value={analysis.fit.shoulderFit} />
+                    <FitRow label="Chest fit" value={analysis.fit.chestFit} />
+                    <FitRow label="Waist fit" value={analysis.fit.waistFit} />
+                    <FitRow label="Sleeve length" value={analysis.fit.sleeveLengthFit} />
+                    <FitRow label="Garment length" value={analysis.fit.garmentLengthFit} />
+                    <FitRow label="Overall comfort" value={analysis.fit.comfort} strong />
+                  </div>
                 </div>
-                <div className="rounded-xl glass-strong p-3 text-xs leading-relaxed text-muted-foreground">
+
+                {/* Recommended size */}
+                <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-fuchsia-500/10 to-blue-500/10 p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Recommended size</p>
+                      <p className="mt-0.5 text-3xl font-semibold text-gradient">{analysis.recommendedSize}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Fit style</p>
+                      <p className="mt-0.5 text-sm font-medium">{analysis.fitStyle}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl glass p-3 text-xs leading-relaxed text-muted-foreground">
                   <Sparkles className="mr-1 inline h-3 w-3 text-fuchsia-300" />
-                  {analysis.reasoning}
+                  {analysis.recommendation}
                 </div>
               </div>
             ) : (
@@ -433,26 +463,53 @@ function TryOn() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function cap(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function Row({
+  label,
+  value,
+  highlight = false,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+}) {
   return (
-    <div className="rounded-lg bg-white/5 px-2 py-1.5">
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className="text-sm font-medium capitalize">{value}</div>
+    <div className="flex items-center justify-between py-2 text-xs">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={`font-medium ${highlight ? "text-fuchsia-300" : ""}`}>{value}</span>
     </div>
   );
 }
 
-function FitRow({ label, value }: { label: string; value: number }) {
+function fitColor(v: number) {
+  if (v >= 95) return "from-fuchsia-500 to-purple-500";
+  if (v >= 85) return "from-blue-500 to-cyan-400";
+  if (v >= 70) return "from-orange-500 to-amber-400";
+  return "from-red-500 to-rose-500";
+}
+
+function FitRow({
+  label,
+  value,
+  strong = false,
+}: {
+  label: string;
+  value: number;
+  strong?: boolean;
+}) {
   const v = Math.max(0, Math.min(100, value));
   return (
     <div>
       <div className="flex justify-between text-xs">
-        <span className="text-muted-foreground">{label}</span>
-        <span className="font-medium">{Math.round(v)}%</span>
+        <span className={strong ? "font-medium" : "text-muted-foreground"}>{label}</span>
+        <span className="font-semibold tabular-nums">{Math.round(v)}%</span>
       </div>
-      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10">
+      <div className={`mt-1.5 overflow-hidden rounded-full bg-white/10 ${strong ? "h-2" : "h-1.5"}`}>
         <div
-          className="h-full rounded-full bg-gradient-to-r from-fuchsia-500 to-blue-500"
+          className={`h-full rounded-full bg-gradient-to-r ${fitColor(v)} transition-[width] duration-700 ease-out`}
           style={{ width: `${v}%` }}
         />
       </div>
