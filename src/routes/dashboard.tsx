@@ -65,6 +65,7 @@ function DashboardPage() {
   const [generations, setGenerations] = useState<Generation[]>([]);
   const [genLoading, setGenLoading] = useState(true);
   const [syncingKb, setSyncingKb] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const ingestKb = useServerFn(ingestPendingKnowledge);
 
   const handleSyncKnowledge = async () => {
@@ -112,6 +113,17 @@ function DashboardPage() {
         setProfile(data ?? null);
         setProfileLoading(false);
       });
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .limit(1)
+      .then(({ data }) => setIsAdmin(!!data && data.length > 0));
   }, [user]);
 
   // Simulate fetching recent AI generations
@@ -192,9 +204,11 @@ function DashboardPage() {
             <Button onClick={handleSignOut} disabled={signingOut} size="sm" variant="outline" className="glass border-white/10 hover:bg-white/5">
               {signingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <><LogOut className="h-4 w-4" /> Sign out</>}
             </Button>
-            <Button onClick={handleSyncKnowledge} disabled={syncingKb} size="sm" className="bg-gradient-to-r from-fuchsia-500 to-blue-500 text-white">
-              {syncingKb ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Database className="h-4 w-4" /> Sync AI Knowledge</>}
-            </Button>
+            {isAdmin && (
+              <Button onClick={handleSyncKnowledge} disabled={syncingKb} size="sm" className="bg-gradient-to-r from-fuchsia-500 to-blue-500 text-white">
+                {syncingKb ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Database className="h-4 w-4" /> Sync AI Knowledge</>}
+              </Button>
+            )}
           </div>
         </div>
 
