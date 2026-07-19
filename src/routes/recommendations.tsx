@@ -11,6 +11,28 @@ import outfit4 from "@/assets/outfit-4.jpg";
 
 export const Route = createFileRoute("/recommendations")({
   component: Recs,
+  head: () => ({
+    meta: [
+      { title: "Smart Outfit Recommendations — StyleSync AI" },
+      { name: "description", content: "Get AI outfit ideas tailored to occasion, weather, and personal style. Generate new looks in seconds." },
+      { property: "og:title", content: "Smart Outfit Recommendations — StyleSync AI" },
+      { property: "og:description", content: "AI outfit ideas tailored to occasion, weather, and personal style." },
+      { property: "og:url", content: "https://new-stylesync-ai.lovable.app/recommendations" },
+      { name: "twitter:title", content: "Smart Outfit Recommendations — StyleSync AI" },
+      { name: "twitter:description", content: "AI outfit ideas tailored to occasion, weather, and personal style." },
+    ],
+    links: [{ rel: "canonical", href: "https://new-stylesync-ai.lovable.app/recommendations" }],
+    scripts: [{
+      type: "application/ld+json",
+      children: JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        name: "Smart Outfit Recommendations",
+        url: "https://new-stylesync-ai.lovable.app/recommendations",
+        description: "AI-generated outfit ideas tailored to occasion, weather, and style.",
+      }),
+    }],
+  }),
 });
 
 const occasions = ["Casual", "Work", "Date", "Party", "Travel", "Workout"];
