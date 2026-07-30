@@ -14,9 +14,22 @@ import {
   Shirt,
   Info,
   Camera,
+  Bookmark,
+  Heart,
+  Download,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  logGeneration,
+  attachGenerationImage,
+  markImageFailed,
+  saveGeneration,
+  toggleFavoriteGeneration,
+  recordDownload,
+  downloadImage,
+  type GenerationRow,
+} from "@/lib/activity";
 import {
   generateOutfits,
   type ScoredOutfit,
@@ -130,6 +143,9 @@ function Recs() {
   });
   const [outfits, setOutfits] = useState<ScoredOutfit[]>([]);
   const [images, setImages] = useState<Record<number, { src: string; final: boolean }>>({});
+  const [genIds, setGenIds] = useState<Record<number, string>>({});
+  const [savedIdx, setSavedIdx] = useState<Record<number, boolean>>({});
+  const [favIdx, setFavIdx] = useState<Record<number, boolean>>({});
   const [loading, setLoading] = useState(false);
   const seenRef = useRef<string[]>([]);
   const seedRef = useRef(0);
@@ -154,7 +170,7 @@ function Recs() {
   }, [profile]);
 
   const streamImage = useCallback(
-    async (index: number, prompt: string, token: string) => {
+    async (index: number, prompt: string, token: string, generationId?: string | null) => {
       const res = await fetch("/api/outfit-image", {
         method: "POST",
         headers: {
@@ -197,6 +213,9 @@ function Recs() {
             setImages((prev) => ({ ...prev, [index]: { src, final: isFinal } }));
           });
           if (isFinal) sawCompleted = true;
+          if (isFinal && generationId) {
+            void attachGenerationImage(generationId, "preview", src);
+          }
         },
       });
       const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
@@ -236,6 +255,9 @@ function Recs() {
         return;
       }
       setOutfits(top);
+      setSavedIdx({});
+      setFavIdx({});
+      setGenIds({});
       seenRef.current = [...seenRef.current, ...top.map((o) => o.signature)].slice(-80);
       try {
         localStorage.setItem(SEEN_KEY, JSON.stringify(seenRef.current));
@@ -249,10 +271,41 @@ function Recs() {
         toast.error("Sign in to render outfit previews.");
         return;
       }
+
+      // Persist every generated outfit as real user activity.
+      const ids = await Promise.all(
+        top.map((o) =>
+          logGeneration({
+            generationType: "recommendation",
+            prompt: o.imagePrompt,
+            occasion: filters.occasion,
+            weather: `${filters.weather} · ${filters.temperatureC}°C`,
+            style: filters.style,
+            bodyType: profile.bodyType,
+            outfitName: o.title,
+            productList: o.items.map((it) => ({
+              name: it.name,
+              color: it.color,
+              category: it.category,
+            })),
+            colorPalette: o.colorPalette,
+            tags: [o.category, filters.season, filters.timeOfDay, filters.trend].filter(Boolean),
+            confidenceScore: o.confidence,
+            metadata: { scores: o.scores, signature: o.signature },
+          }),
+        ),
+      );
+      const idMap: Record<number, string> = {};
+      ids.forEach((id, i) => {
+        if (id) idMap[i] = id;
+      });
+      setGenIds(idMap);
+
       await Promise.all(
         top.map((o, i) =>
-          streamImage(i, o.imagePrompt, token).catch((e) => {
+          streamImage(i, o.imagePrompt, token, ids[i]).catch((e) => {
             console.error("image", i, e);
+            if (ids[i]) void markImageFailed(ids[i]!, "preview", (e as Error).message);
           }),
         ),
       );
@@ -376,6 +429,43 @@ function Recs() {
                 key={o.signature + seedRef.current}
                 outfit={o}
                 image={images[i]}
+                saved={!!savedIdx[i]}
+                favorite={!!favIdx[i]}
+                onSave={async () => {
+                  const id = genIds[i];
+                  if (!id) return toast.error("Sign in to save looks.");
+                  const ok = await saveGeneration({
+                    id,
+                    outfit_name: o.title,
+                    generation_type: "recommendation",
+                    image_url: null,
+                    image_status: images[i]?.final ? "ready" : "pending",
+                    confidence_score: o.confidence,
+                    product_list: o.items.map((it) => ({ name: it.name, color: it.color })),
+                    tags: [o.category],
+                    is_favorite: !!favIdx[i],
+                  } as unknown as GenerationRow);
+                  if (ok) {
+                    setSavedIdx((p) => ({ ...p, [i]: true }));
+                    toast.success("Saved to your dashboard.");
+                  } else toast.error("Could not save this look.");
+                }}
+                onFavorite={async () => {
+                  const id = genIds[i];
+                  if (!id) return toast.error("Sign in to favorite looks.");
+                  const next = !favIdx[i];
+                  setFavIdx((p) => ({ ...p, [i]: next }));
+                  await toggleFavoriteGeneration(id, next);
+                  toast.success(next ? "Added to favorites." : "Removed from favorites.");
+                }}
+                onDownload={async () => {
+                  const img = images[i];
+                  if (!img?.src) return toast.error("Preview is still rendering.");
+                  await downloadImage(img.src, `${o.title.replace(/\s+/g, "-").toLowerCase()}.png`);
+                  const id = genIds[i];
+                  if (id) await recordDownload(id, 0);
+                  toast.success("Download started.");
+                }}
                 onTryOn={() => navigate({ to: "/try-on" })}
                 onDetails={() => toast.message(o.title, { description: buildDetails(o) })}
               />
@@ -396,11 +486,21 @@ function buildDetails(o: ScoredOutfit): string {
 function OutfitCard({
   outfit,
   image,
+  saved,
+  favorite,
+  onSave,
+  onFavorite,
+  onDownload,
   onTryOn,
   onDetails,
 }: {
   outfit: ScoredOutfit;
   image: { src: string; final: boolean } | undefined;
+  saved: boolean;
+  favorite: boolean;
+  onSave: () => void;
+  onFavorite: () => void;
+  onDownload: () => void;
   onTryOn: () => void;
   onDetails: () => void;
 }) {
@@ -426,6 +526,22 @@ function OutfitCard({
         </div>
         <div className="absolute top-2 right-2 z-10 rounded-full glass px-2 py-0.5 text-[10px] font-medium">
           {outfit.confidence}% match
+        </div>
+        <div className="absolute bottom-2 right-2 z-10 flex gap-1.5 opacity-0 transition group-hover:opacity-100">
+          <button
+            onClick={onFavorite}
+            aria-label="Favorite outfit"
+            className="glass grid h-8 w-8 place-items-center rounded-full border border-white/10 hover:border-fuchsia-400/60"
+          >
+            <Heart className={`h-3.5 w-3.5 ${favorite ? "fill-fuchsia-400 text-fuchsia-400" : "text-white"}`} />
+          </button>
+          <button
+            onClick={onDownload}
+            aria-label="Download outfit image"
+            className="glass grid h-8 w-8 place-items-center rounded-full border border-white/10 hover:border-fuchsia-400/60"
+          >
+            <Download className="h-3.5 w-3.5 text-white" />
+          </button>
         </div>
       </div>
       <div className="p-4">
@@ -474,6 +590,16 @@ function OutfitCard({
           </Button>
           <Button size="sm" variant="ghost" className="glass" onClick={onDetails}>
             <Info className="mr-1.5 h-3.5 w-3.5" /> Details
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="glass"
+            onClick={onSave}
+            disabled={saved}
+            aria-label="Save outfit"
+          >
+            <Bookmark className={`h-3.5 w-3.5 ${saved ? "fill-fuchsia-400 text-fuchsia-400" : ""}`} />
           </Button>
         </div>
       </div>

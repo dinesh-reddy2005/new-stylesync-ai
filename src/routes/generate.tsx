@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { logGeneration } from "@/lib/activity";
 import {
   Check,
   Copy,
@@ -89,6 +90,14 @@ function GeneratePage() {
     try {
       const res = await generate({ data: { prompt: trimmed } });
       setOutput(res.content);
+      void logGeneration({
+        generationType: "ai_studio",
+        prompt: trimmed,
+        outfitName: trimmed.slice(0, 80),
+        resultText: res.content,
+        tags: ["AI Studio"],
+        imageStatus: "none",
+      });
       const item: HistoryItem = {
         id: crypto.randomUUID(),
         prompt: trimmed,

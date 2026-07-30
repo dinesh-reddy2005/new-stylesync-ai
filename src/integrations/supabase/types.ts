@@ -73,6 +73,92 @@ export type Database = {
           },
         ]
       }
+      favorite_outfits: {
+        Row: {
+          created_at: string
+          generation_id: string | null
+          id: string
+          saved_outfit_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          generation_id?: string | null
+          id?: string
+          saved_outfit_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          generation_id?: string | null
+          id?: string
+          saved_outfit_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "favorite_outfits_generation_id_fkey"
+            columns: ["generation_id"]
+            isOneToOne: false
+            referencedRelation: "user_generations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "favorite_outfits_saved_outfit_id_fkey"
+            columns: ["saved_outfit_id"]
+            isOneToOne: false
+            referencedRelation: "saved_outfits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      generation_images: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          generation_id: string
+          id: string
+          image_url: string | null
+          kind: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          generation_id: string
+          id?: string
+          image_url?: string | null
+          kind?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          generation_id?: string
+          id?: string
+          image_url?: string | null
+          kind?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generation_images_generation_id_fkey"
+            columns: ["generation_id"]
+            isOneToOne: false
+            referencedRelation: "user_generations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -100,6 +186,143 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_outfits: {
+        Row: {
+          confidence_score: number | null
+          created_at: string
+          generation_id: string | null
+          generation_type: string
+          id: string
+          image_status: string
+          image_url: string | null
+          is_favorite: boolean
+          outfit_name: string
+          product_list: Json
+          tags: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          confidence_score?: number | null
+          created_at?: string
+          generation_id?: string | null
+          generation_type: string
+          id?: string
+          image_status?: string
+          image_url?: string | null
+          is_favorite?: boolean
+          outfit_name: string
+          product_list?: Json
+          tags?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          confidence_score?: number | null
+          created_at?: string
+          generation_id?: string | null
+          generation_type?: string
+          id?: string
+          image_status?: string
+          image_url?: string | null
+          is_favorite?: boolean
+          outfit_name?: string
+          product_list?: Json
+          tags?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_outfits_generation_id_fkey"
+            columns: ["generation_id"]
+            isOneToOne: false
+            referencedRelation: "user_generations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_generations: {
+        Row: {
+          body_type: string | null
+          color_palette: Json
+          confidence_score: number | null
+          created_at: string
+          download_count: number
+          generation_type: string
+          id: string
+          image_status: string
+          image_url: string | null
+          is_favorite: boolean
+          is_saved: boolean
+          metadata: Json
+          occasion: string | null
+          outfit_name: string | null
+          product_list: Json
+          prompt: string | null
+          recommended_size: string | null
+          result_text: string | null
+          share_count: number
+          style: string | null
+          tags: string[]
+          updated_at: string
+          user_id: string
+          weather: string | null
+        }
+        Insert: {
+          body_type?: string | null
+          color_palette?: Json
+          confidence_score?: number | null
+          created_at?: string
+          download_count?: number
+          generation_type: string
+          id?: string
+          image_status?: string
+          image_url?: string | null
+          is_favorite?: boolean
+          is_saved?: boolean
+          metadata?: Json
+          occasion?: string | null
+          outfit_name?: string | null
+          product_list?: Json
+          prompt?: string | null
+          recommended_size?: string | null
+          result_text?: string | null
+          share_count?: number
+          style?: string | null
+          tags?: string[]
+          updated_at?: string
+          user_id: string
+          weather?: string | null
+        }
+        Update: {
+          body_type?: string | null
+          color_palette?: Json
+          confidence_score?: number | null
+          created_at?: string
+          download_count?: number
+          generation_type?: string
+          id?: string
+          image_status?: string
+          image_url?: string | null
+          is_favorite?: boolean
+          is_saved?: boolean
+          metadata?: Json
+          occasion?: string | null
+          outfit_name?: string | null
+          product_list?: Json
+          prompt?: string | null
+          recommended_size?: string | null
+          result_text?: string | null
+          share_count?: number
+          style?: string | null
+          tags?: string[]
+          updated_at?: string
+          user_id?: string
+          weather?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -117,6 +340,42 @@ export type Database = {
           created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_statistics: {
+        Row: {
+          average_confidence: number
+          created_at: string
+          download_count: number
+          favorite_count: number
+          saved_looks: number
+          share_count: number
+          total_generations: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          average_confidence?: number
+          created_at?: string
+          download_count?: number
+          favorite_count?: number
+          saved_looks?: number
+          share_count?: number
+          total_generations?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          average_confidence?: number
+          created_at?: string
+          download_count?: number
+          favorite_count?: number
+          saved_looks?: number
+          share_count?: number
+          total_generations?: number
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -148,6 +407,10 @@ export type Database = {
           source: string
           title: string
         }[]
+      }
+      recompute_user_statistics: {
+        Args: { _user_id: string }
+        Returns: undefined
       }
     }
     Enums: {
