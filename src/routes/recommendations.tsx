@@ -201,6 +201,7 @@ function Recs() {
   const [bodyLoading, setBodyLoading] = useState(true);
   const seenRef = useRef<string[]>([]);
   const seedRef = useRef(0);
+  const previewRef = useRef<Record<number, string>>({});
 
   const generate = useServerFn(generateOutfits);
 
@@ -372,6 +373,7 @@ function Recs() {
           if (isFinal && generationId) {
             void attachGenerationImage(generationId, "preview", src);
           }
+          if (isFinal) previewRef.current[index] = src;
         },
       });
       const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
