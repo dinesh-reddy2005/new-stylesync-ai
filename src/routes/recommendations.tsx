@@ -17,6 +17,8 @@ import {
   Bookmark,
   Heart,
   Download,
+  User,
+  Ruler,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,6 +36,7 @@ import {
   generateOutfits,
   type ScoredOutfit,
 } from "@/lib/recommendations.functions";
+import { getBodyProfile, loadPhotoDataUrl, type BodyProfile } from "@/lib/body-profile";
 
 export const Route = createFileRoute("/recommendations")({
   component: Recs,
@@ -100,6 +103,50 @@ type Filters = {
 
 const PROFILE_KEY = "stylesync.rec.profile";
 const SEEN_KEY = "stylesync.rec.seen";
+
+/** Map analysis vocabulary onto the profile panel's option lists. */
+function mapBodyType(v?: string | null): string | null {
+  switch (v) {
+    case "Triangle":
+      return "Pear";
+    case "Trapezoid":
+    case "Muscular":
+      return "Athletic";
+    case "Slim":
+      return "Rectangle";
+    case "Athletic":
+    case "Rectangle":
+    case "Inverted Triangle":
+    case "Oval":
+      return v;
+    default:
+      return null;
+  }
+}
+
+function mapSkinTone(v?: string | null): string | null {
+  if (!v) return null;
+  const t = v.toLowerCase();
+  if (t.includes("fair") || t.includes("light")) return "Fair";
+  if (t.includes("deep") || t.includes("dark")) return "Deep";
+  if (t.includes("cool")) return "Cool";
+  if (t.includes("warm") || t.includes("olive") || t.includes("tan")) return "Warm";
+  return "Neutral";
+}
+
+function mapFit(v?: string | null): string | null {
+  if (!v) return null;
+  if (v.startsWith("Slim")) return "Slim";
+  if (v.startsWith("Relaxed")) return "Oversized";
+  return "Regular";
+}
+
+function mapGender(v?: string | null): string | null {
+  if (!v) return null;
+  if (/^man$|^male$/i.test(v)) return "Man";
+  if (/^woman$|^female$/i.test(v)) return "Woman";
+  return null;
+}
 
 function loadProfile(): Profile {
   if (typeof window === "undefined") return defaultProfile();
