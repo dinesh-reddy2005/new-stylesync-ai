@@ -190,10 +190,15 @@ function Recs() {
   });
   const [outfits, setOutfits] = useState<ScoredOutfit[]>([]);
   const [images, setImages] = useState<Record<number, { src: string; final: boolean }>>({});
+  const [tryons, setTryons] = useState<Record<number, { src: string; final: boolean }>>({});
+  const [tryonStatus, setTryonStatus] = useState<Record<number, "pending" | "running" | "done" | "failed">>({});
   const [genIds, setGenIds] = useState<Record<number, string>>({});
   const [savedIdx, setSavedIdx] = useState<Record<number, boolean>>({});
   const [favIdx, setFavIdx] = useState<Record<number, boolean>>({});
   const [loading, setLoading] = useState(false);
+  const [bodyProfile, setBodyProfile] = useState<BodyProfile | null>(null);
+  const [bodyPhoto, setBodyPhoto] = useState<string | null>(null);
+  const [bodyLoading, setBodyLoading] = useState(true);
   const seenRef = useRef<string[]>([]);
   const seedRef = useRef(0);
 
@@ -215,6 +220,110 @@ function Recs() {
       /* ignore */
     }
   }, [profile]);
+
+  // One photo, one analysis — reused by every recommendation on this page.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const bp = await getBodyProfile();
+        if (cancelled) return;
+        setBodyProfile(bp);
+        if (bp?.photoPath) {
+          const url = await loadPhotoDataUrl(bp.photoPath);
+          if (!cancelled) setBodyPhoto(url);
+        }
+        if (bp?.analysis) {
+          const a = bp.analysis;
+          setProfile((prev) => ({
+            ...prev,
+            gender: mapGender(a.apparentGender) ?? prev.gender,
+            bodyType: mapBodyType(a.bodyType) ?? prev.bodyType,
+            heightCm: Math.round(a.proportions?.heightCm ?? prev.heightCm),
+            skinTone: mapSkinTone(a.skinTone) ?? prev.skinTone,
+            hairColor: a.hairColor && a.hairColor !== "Unspecified" ? a.hairColor : prev.hairColor,
+            faceShape: a.faceShape || prev.faceShape,
+            preferredFit: mapFit(a.fitStyle) ?? prev.preferredFit,
+          }));
+        }
+      } finally {
+        if (!cancelled) setBodyLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /** Render the recommended outfit onto the user's stored photo. */
+  const streamTryOnFor = useCallback(
+    async (
+      index: number,
+      outfit: ScoredOutfit,
+      outfitImageDataUrl: string | null,
+      photo: string,
+      token: string,
+      generationId?: string | null,
+    ) => {
+      const res = await fetch("/api/tryon-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          imageDataUrl: photo,
+          outfitPrompt: outfit.imagePrompt,
+          outfitImageDataUrl,
+        }),
+      });
+      if (!res.ok || !res.body) {
+        let msg = `Try-on failed (${res.status})`;
+        try {
+          const j = (await res.json()) as { error?: string };
+          if (j?.error) msg = j.error;
+        } catch {
+          /* ignore */
+        }
+        throw new Error(msg);
+      }
+      let sawCompleted = false;
+      const parser = createParser({
+        onEvent(event) {
+          if (
+            event.event !== "image_generation.partial_image" &&
+            event.event !== "image_generation.completed"
+          )
+            return;
+          let payload: { b64_json?: string };
+          try {
+            payload = JSON.parse(event.data);
+          } catch {
+            return;
+          }
+          if (!payload.b64_json) return;
+          const isFinal = event.event === "image_generation.completed";
+          const src = `data:image/png;base64,${payload.b64_json}`;
+          flushSync(() => {
+            setTryons((prev) => ({ ...prev, [index]: { src, final: isFinal } }));
+          });
+          if (isFinal) {
+            sawCompleted = true;
+            if (generationId) void attachGenerationImage(generationId, "tryon", src);
+          }
+        },
+      });
+      const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          parser.feed(value);
+        }
+      } finally {
+        reader.cancel().catch(() => {});
+      }
+      if (!sawCompleted) throw new Error("Try-on stream ended without completion");
+    },
+    [],
+  );
 
   const streamImage = useCallback(
     async (index: number, prompt: string, token: string, generationId?: string | null) => {
