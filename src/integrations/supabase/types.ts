@@ -242,6 +242,66 @@ export type Database = {
           },
         ]
       }
+      user_body_profiles: {
+        Row: {
+          analysis: Json
+          analyzed_at: string | null
+          body_type: string | null
+          created_at: string
+          face_shape: string | null
+          fit_style: string | null
+          gender: string | null
+          hair_color: string | null
+          height_cm: number | null
+          landmarks: Json
+          photo_hash: string | null
+          photo_path: string | null
+          proportions: Json
+          recommended_size: string | null
+          skin_tone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          analysis?: Json
+          analyzed_at?: string | null
+          body_type?: string | null
+          created_at?: string
+          face_shape?: string | null
+          fit_style?: string | null
+          gender?: string | null
+          hair_color?: string | null
+          height_cm?: number | null
+          landmarks?: Json
+          photo_hash?: string | null
+          photo_path?: string | null
+          proportions?: Json
+          recommended_size?: string | null
+          skin_tone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          analysis?: Json
+          analyzed_at?: string | null
+          body_type?: string | null
+          created_at?: string
+          face_shape?: string | null
+          fit_style?: string | null
+          gender?: string | null
+          hair_color?: string | null
+          height_cm?: number | null
+          landmarks?: Json
+          photo_hash?: string | null
+          photo_path?: string | null
+          proportions?: Json
+          recommended_size?: string | null
+          skin_tone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_generations: {
         Row: {
           body_type: string | null

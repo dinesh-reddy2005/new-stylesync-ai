@@ -17,6 +17,8 @@ import {
   Bookmark,
   Heart,
   Download,
+  User,
+  Ruler,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,6 +36,7 @@ import {
   generateOutfits,
   type ScoredOutfit,
 } from "@/lib/recommendations.functions";
+import { getBodyProfile, loadPhotoDataUrl, type BodyProfile } from "@/lib/body-profile";
 
 export const Route = createFileRoute("/recommendations")({
   component: Recs,
@@ -101,6 +104,50 @@ type Filters = {
 const PROFILE_KEY = "stylesync.rec.profile";
 const SEEN_KEY = "stylesync.rec.seen";
 
+/** Map analysis vocabulary onto the profile panel's option lists. */
+function mapBodyType(v?: string | null): string | null {
+  switch (v) {
+    case "Triangle":
+      return "Pear";
+    case "Trapezoid":
+    case "Muscular":
+      return "Athletic";
+    case "Slim":
+      return "Rectangle";
+    case "Athletic":
+    case "Rectangle":
+    case "Inverted Triangle":
+    case "Oval":
+      return v;
+    default:
+      return null;
+  }
+}
+
+function mapSkinTone(v?: string | null): string | null {
+  if (!v) return null;
+  const t = v.toLowerCase();
+  if (t.includes("fair") || t.includes("light")) return "Fair";
+  if (t.includes("deep") || t.includes("dark")) return "Deep";
+  if (t.includes("cool")) return "Cool";
+  if (t.includes("warm") || t.includes("olive") || t.includes("tan")) return "Warm";
+  return "Neutral";
+}
+
+function mapFit(v?: string | null): string | null {
+  if (!v) return null;
+  if (v.startsWith("Slim")) return "Slim";
+  if (v.startsWith("Relaxed")) return "Oversized";
+  return "Regular";
+}
+
+function mapGender(v?: string | null): string | null {
+  if (!v) return null;
+  if (/^man$|^male$/i.test(v)) return "Man";
+  if (/^woman$|^female$/i.test(v)) return "Woman";
+  return null;
+}
+
 function loadProfile(): Profile {
   if (typeof window === "undefined") return defaultProfile();
   try {
@@ -143,12 +190,18 @@ function Recs() {
   });
   const [outfits, setOutfits] = useState<ScoredOutfit[]>([]);
   const [images, setImages] = useState<Record<number, { src: string; final: boolean }>>({});
+  const [tryons, setTryons] = useState<Record<number, { src: string; final: boolean }>>({});
+  const [tryonStatus, setTryonStatus] = useState<Record<number, "pending" | "running" | "done" | "failed">>({});
   const [genIds, setGenIds] = useState<Record<number, string>>({});
   const [savedIdx, setSavedIdx] = useState<Record<number, boolean>>({});
   const [favIdx, setFavIdx] = useState<Record<number, boolean>>({});
   const [loading, setLoading] = useState(false);
+  const [bodyProfile, setBodyProfile] = useState<BodyProfile | null>(null);
+  const [bodyPhoto, setBodyPhoto] = useState<string | null>(null);
+  const [bodyLoading, setBodyLoading] = useState(true);
   const seenRef = useRef<string[]>([]);
   const seedRef = useRef(0);
+  const previewRef = useRef<Record<number, string>>({});
 
   const generate = useServerFn(generateOutfits);
 
@@ -168,6 +221,110 @@ function Recs() {
       /* ignore */
     }
   }, [profile]);
+
+  // One photo, one analysis — reused by every recommendation on this page.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const bp = await getBodyProfile();
+        if (cancelled) return;
+        setBodyProfile(bp);
+        if (bp?.photoPath) {
+          const url = await loadPhotoDataUrl(bp.photoPath);
+          if (!cancelled) setBodyPhoto(url);
+        }
+        if (bp?.analysis) {
+          const a = bp.analysis;
+          setProfile((prev) => ({
+            ...prev,
+            gender: mapGender(a.apparentGender) ?? prev.gender,
+            bodyType: mapBodyType(a.bodyType) ?? prev.bodyType,
+            heightCm: Math.round(a.proportions?.heightCm ?? prev.heightCm),
+            skinTone: mapSkinTone(a.skinTone) ?? prev.skinTone,
+            hairColor: a.hairColor && a.hairColor !== "Unspecified" ? a.hairColor : prev.hairColor,
+            faceShape: a.faceShape || prev.faceShape,
+            preferredFit: mapFit(a.fitStyle) ?? prev.preferredFit,
+          }));
+        }
+      } finally {
+        if (!cancelled) setBodyLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /** Render the recommended outfit onto the user's stored photo. */
+  const streamTryOnFor = useCallback(
+    async (
+      index: number,
+      outfit: ScoredOutfit,
+      outfitImageDataUrl: string | null,
+      photo: string,
+      token: string,
+      generationId?: string | null,
+    ) => {
+      const res = await fetch("/api/tryon-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          imageDataUrl: photo,
+          outfitPrompt: outfit.imagePrompt,
+          outfitImageDataUrl,
+        }),
+      });
+      if (!res.ok || !res.body) {
+        let msg = `Try-on failed (${res.status})`;
+        try {
+          const j = (await res.json()) as { error?: string };
+          if (j?.error) msg = j.error;
+        } catch {
+          /* ignore */
+        }
+        throw new Error(msg);
+      }
+      let sawCompleted = false;
+      const parser = createParser({
+        onEvent(event) {
+          if (
+            event.event !== "image_generation.partial_image" &&
+            event.event !== "image_generation.completed"
+          )
+            return;
+          let payload: { b64_json?: string };
+          try {
+            payload = JSON.parse(event.data);
+          } catch {
+            return;
+          }
+          if (!payload.b64_json) return;
+          const isFinal = event.event === "image_generation.completed";
+          const src = `data:image/png;base64,${payload.b64_json}`;
+          flushSync(() => {
+            setTryons((prev) => ({ ...prev, [index]: { src, final: isFinal } }));
+          });
+          if (isFinal) {
+            sawCompleted = true;
+            if (generationId) void attachGenerationImage(generationId, "tryon", src);
+          }
+        },
+      });
+      const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          parser.feed(value);
+        }
+      } finally {
+        reader.cancel().catch(() => {});
+      }
+      if (!sawCompleted) throw new Error("Try-on stream ended without completion");
+    },
+    [],
+  );
 
   const streamImage = useCallback(
     async (index: number, prompt: string, token: string, generationId?: string | null) => {
@@ -216,6 +373,7 @@ function Recs() {
           if (isFinal && generationId) {
             void attachGenerationImage(generationId, "preview", src);
           }
+          if (isFinal) previewRef.current[index] = src;
         },
       });
       const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
@@ -238,6 +396,9 @@ function Recs() {
     setLoading(true);
     setOutfits([]);
     setImages({});
+    setTryons({});
+    setTryonStatus({});
+    previewRef.current = {};
     try {
       seedRef.current += 1;
       const { outfits: raw } = await generate({
@@ -309,12 +470,28 @@ function Recs() {
           }),
         ),
       );
+
+      // Same photo, every look: render each recommendation on the user in sequence.
+      if (bodyPhoto) {
+        setTryonStatus(Object.fromEntries(top.map((_, i) => [i, "pending" as const])));
+        for (let i = 0; i < top.length; i++) {
+          setTryonStatus((p) => ({ ...p, [i]: "running" }));
+          try {
+            await streamTryOnFor(i, top[i], previewRef.current[i] ?? null, bodyPhoto, token, ids[i]);
+            setTryonStatus((p) => ({ ...p, [i]: "done" }));
+          } catch (e) {
+            console.error("tryon", i, e);
+            setTryonStatus((p) => ({ ...p, [i]: "failed" }));
+            if (ids[i]) void markImageFailed(ids[i]!, "tryon", (e as Error).message);
+          }
+        }
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to generate outfits.");
     } finally {
       setLoading(false);
     }
-  }, [generate, profile, filters, streamImage]);
+  }, [generate, profile, filters, streamImage, streamTryOnFor, bodyPhoto]);
 
   const paletteSummary = useMemo(() => profile.preferredColors.join(", "), [profile.preferredColors]);
 
@@ -334,6 +511,51 @@ function Recs() {
         <Card className="glass-strong h-fit border-white/10 p-5">
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
             <Shirt className="h-4 w-4 text-fuchsia-300" /> Your profile
+          </div>
+          <div className="mb-4 rounded-2xl border border-white/10 bg-white/5 p-3">
+            {bodyLoading ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading your body profile…
+              </div>
+            ) : bodyPhoto ? (
+              <div className="flex items-center gap-3">
+                <img
+                  src={bodyPhoto}
+                  alt="Your saved try-on photo"
+                  className="h-14 w-14 rounded-xl object-cover"
+                />
+                <div className="min-w-0 text-xs">
+                  <div className="flex items-center gap-1 font-medium text-foreground">
+                    <User className="h-3 w-3 text-fuchsia-300" /> Photo synced
+                  </div>
+                  <p className="mt-0.5 text-muted-foreground">
+                    {bodyProfile?.bodyType ?? "Body"} ·{" "}
+                    {bodyProfile?.recommendedSize ? `Size ${bodyProfile.recommendedSize}` : "no size yet"}
+                    {bodyProfile?.fitStyle ? ` · ${bodyProfile.fitStyle}` : ""}
+                  </p>
+                  <p className="mt-0.5 text-[10px] text-muted-foreground">
+                    Every look below is rendered on you automatically.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="text-xs text-muted-foreground">
+                <div className="flex items-center gap-1 font-medium text-foreground">
+                  <Camera className="h-3 w-3 text-fuchsia-300" /> No photo yet
+                </div>
+                <p className="mt-1">
+                  Upload one photo on Virtual Try-On — it's reused for every recommendation.
+                </p>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="glass mt-2 h-7 text-xs"
+                  onClick={() => navigate({ to: "/try-on" })}
+                >
+                  Upload photo
+                </Button>
+              </div>
+            )}
           </div>
           <Select label="Gender" value={profile.gender} options={GENDERS} onChange={(v) => setProfile({ ...profile, gender: v })} />
           <Select label="Body type" value={profile.bodyType} options={BODY_TYPES} onChange={(v) => setProfile({ ...profile, bodyType: v })} />
@@ -429,6 +651,10 @@ function Recs() {
                 key={o.signature + seedRef.current}
                 outfit={o}
                 image={images[i]}
+                tryon={tryons[i]}
+                tryonState={tryonStatus[i]}
+                hasPhoto={!!bodyPhoto}
+                recommendedSize={bodyProfile?.recommendedSize ?? null}
                 saved={!!savedIdx[i]}
                 favorite={!!favIdx[i]}
                 onSave={async () => {
@@ -462,6 +688,13 @@ function Recs() {
                   const img = images[i];
                   if (!img?.src) return toast.error("Preview is still rendering.");
                   await downloadImage(img.src, `${o.title.replace(/\s+/g, "-").toLowerCase()}.png`);
+                  const worn = tryons[i];
+                  if (worn?.final) {
+                    await downloadImage(
+                      worn.src,
+                      `${o.title.replace(/\s+/g, "-").toLowerCase()}-try-on.png`,
+                    );
+                  }
                   const id = genIds[i];
                   if (id) await recordDownload(id, 0);
                   toast.success("Download started.");
@@ -486,6 +719,10 @@ function buildDetails(o: ScoredOutfit): string {
 function OutfitCard({
   outfit,
   image,
+  tryon,
+  tryonState,
+  hasPhoto,
+  recommendedSize,
   saved,
   favorite,
   onSave,
@@ -496,6 +733,10 @@ function OutfitCard({
 }: {
   outfit: ScoredOutfit;
   image: { src: string; final: boolean } | undefined;
+  tryon: { src: string; final: boolean } | undefined;
+  tryonState: "pending" | "running" | "done" | "failed" | undefined;
+  hasPhoto: boolean;
+  recommendedSize: string | null;
   saved: boolean;
   favorite: boolean;
   onSave: () => void;
@@ -504,20 +745,28 @@ function OutfitCard({
   onTryOn: () => void;
   onDetails: () => void;
 }) {
+  const [view, setView] = useState<"outfit" | "tryon">("outfit");
+  const active = view === "tryon" ? tryon : image;
+  const showTryOnTab = hasPhoto;
   return (
     <Card className="glass group overflow-hidden border-white/10 transition hover:border-fuchsia-500/40 hover:-translate-y-1">
       <div className="relative aspect-[4/5] overflow-hidden bg-white/5">
-        {image ? (
+        {active ? (
           <img
-            src={image.src}
-            alt={outfit.title}
+            src={active.src}
+            alt={view === "tryon" ? `${outfit.title} worn by you` : outfit.title}
             className={`absolute inset-0 h-full w-full object-cover transition-[filter,transform] duration-700 ease-out ${
-              image.final ? "blur-0" : "blur-2xl"
+              active.final ? "blur-0" : "blur-2xl"
             } group-hover:scale-105`}
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Rendering outfit…
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
+            {view === "tryon"
+              ? tryonState === "failed"
+                ? "Try-on unavailable"
+                : "Rendering your try-on…"
+              : "Rendering outfit…"}
           </div>
         )}
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
@@ -527,6 +776,29 @@ function OutfitCard({
         <div className="absolute top-2 right-2 z-10 rounded-full glass px-2 py-0.5 text-[10px] font-medium">
           {outfit.confidence}% match
         </div>
+        {showTryOnTab && (
+          <div className="absolute bottom-2 left-2 z-10 flex gap-1 rounded-full glass p-0.5 text-[10px]">
+            <button
+              onClick={() => setView("outfit")}
+              className={`rounded-full px-2 py-0.5 transition ${
+                view === "outfit" ? "bg-white/15 text-foreground" : "text-muted-foreground"
+              }`}
+            >
+              Outfit
+            </button>
+            <button
+              onClick={() => setView("tryon")}
+              className={`flex items-center gap-1 rounded-full px-2 py-0.5 transition ${
+                view === "tryon" ? "bg-white/15 text-foreground" : "text-muted-foreground"
+              }`}
+            >
+              {(tryonState === "running" || tryonState === "pending") && (
+                <Loader2 className="h-2.5 w-2.5 animate-spin" />
+              )}
+              Try-On
+            </button>
+          </div>
+        )}
         <div className="absolute bottom-2 right-2 z-10 flex gap-1.5 opacity-0 transition group-hover:opacity-100">
           <button
             onClick={onFavorite}
@@ -549,6 +821,12 @@ function OutfitCard({
 
         <div className="mt-2 flex flex-wrap gap-1">
           <BadgePill>{outfit.category}</BadgePill>
+          {recommendedSize && (
+            <BadgePill>
+              <Ruler className="mr-1 inline h-2.5 w-2.5" />
+              Size {recommendedSize}
+            </BadgePill>
+          )}
           <BadgePill>Style: {outfit.scores.stylePref}%</BadgePill>
           <BadgePill>Weather: {outfit.scores.weatherMatch}%</BadgePill>
         </div>
@@ -583,10 +861,11 @@ function OutfitCard({
         <div className="mt-4 flex gap-2">
           <Button
             size="sm"
-            onClick={onTryOn}
+            onClick={() => (showTryOnTab ? setView(view === "tryon" ? "outfit" : "tryon") : onTryOn())}
             className="btn-glow flex-1 bg-gradient-to-r from-fuchsia-500 to-blue-500 text-white hover:opacity-90"
           >
-            <Camera className="mr-1.5 h-3.5 w-3.5" /> Virtual Try-On
+            <Camera className="mr-1.5 h-3.5 w-3.5" />{" "}
+            {showTryOnTab ? (view === "tryon" ? "View Outfit" : "View Try-On") : "Virtual Try-On"}
           </Button>
           <Button size="sm" variant="ghost" className="glass" onClick={onDetails}>
             <Info className="mr-1.5 h-3.5 w-3.5" /> Details

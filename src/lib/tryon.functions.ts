@@ -32,6 +32,13 @@ export type BodyAnalysis = {
   symmetryScore: number; // 0-100
   shoulderToWaist: number;
   waistToHip: number;
+  /** Appearance attributes reused by the recommendation engine. */
+  skinTone: string;
+  hairColor: string;
+  faceShape: string;
+  apparentGender: string;
+  /** Normalized 0-1 landmark positions detected in the photo. */
+  landmarks: Record<string, { x: number; y: number }>;
   /** Estimated proportional measurements in cm. */
   proportions: {
     heightCm: number;
@@ -84,6 +91,33 @@ const analysisTool = {
         heightRatio: { type: "number", description: "Head-to-body ratio (heads), typical 6.5–8.0" },
         symmetryScore: { type: "number", description: "0-100 how symmetric the pose/body looks" },
         confidence: { type: "number", description: "0-100 confidence based on landmark visibility" },
+        skinTone: {
+          type: "string",
+          description: "One of: Fair, Light, Warm, Olive, Tan, Deep, Cool, Neutral",
+        },
+        hairColor: { type: "string", description: "e.g. Black, Dark Brown, Brunette, Blonde, Auburn, Grey" },
+        faceShape: {
+          type: "string",
+          description: "One of: Oval, Round, Square, Heart, Diamond, Oblong, Triangle",
+        },
+        apparentGender: { type: "string", description: "Man, Woman, or Unspecified" },
+        landmarks: {
+          type: "object",
+          description:
+            "Normalized 0-1 image coordinates of detected landmarks. Each value is {x, y}.",
+          properties: {
+            head: { type: "object", properties: { x: { type: "number" }, y: { type: "number" } }, required: ["x", "y"] },
+            leftShoulder: { type: "object", properties: { x: { type: "number" }, y: { type: "number" } }, required: ["x", "y"] },
+            rightShoulder: { type: "object", properties: { x: { type: "number" }, y: { type: "number" } }, required: ["x", "y"] },
+            chest: { type: "object", properties: { x: { type: "number" }, y: { type: "number" } }, required: ["x", "y"] },
+            waist: { type: "object", properties: { x: { type: "number" }, y: { type: "number" } }, required: ["x", "y"] },
+            hip: { type: "object", properties: { x: { type: "number" }, y: { type: "number" } }, required: ["x", "y"] },
+            leftKnee: { type: "object", properties: { x: { type: "number" }, y: { type: "number" } }, required: ["x", "y"] },
+            rightKnee: { type: "object", properties: { x: { type: "number" }, y: { type: "number" } }, required: ["x", "y"] },
+            leftAnkle: { type: "object", properties: { x: { type: "number" }, y: { type: "number" } }, required: ["x", "y"] },
+            rightAnkle: { type: "object", properties: { x: { type: "number" }, y: { type: "number" } }, required: ["x", "y"] },
+          },
+        },
         proportions: {
           type: "object",
           description: "Estimated real-world measurements in centimeters.",
@@ -118,6 +152,10 @@ const analysisTool = {
         "heightRatio",
         "symmetryScore",
         "confidence",
+        "skinTone",
+        "hairColor",
+        "faceShape",
+        "apparentGender",
         "proportions",
         "reasoning",
       ],
@@ -245,14 +283,14 @@ export const analyzeBody = createServerFn({ method: "POST" })
           {
             role: "system",
             content:
-              "You are a computer-vision fashion fit analyst. Detect body landmarks (head, shoulders, chest, waist, hips, knees, ankles, wrists) in the photo and derive approximate proportional measurements in centimeters. Use the head-to-body ratio and visible landmark spacing to scale. Return ALL fields via report_body_analysis. Every measurement must be derived from THIS photo — never return generic template values, and never return the exact same numbers you would use for a different photo. If the photo is not full-body or landmarks are occluded, lower confidence accordingly.",
+              "You are a computer-vision fashion fit analyst. Detect body landmarks (head, shoulders, chest, waist, hips, knees, ankles, wrists) in the photo and derive approximate proportional measurements in centimeters. Use the head-to-body ratio and visible landmark spacing to scale. Also read appearance attributes: skin tone, hair color, face shape, and apparent gender presentation. Return ALL fields via report_body_analysis, including normalized 0-1 landmark coordinates. Every measurement must be derived from THIS photo — never return generic template values, and never return the exact same numbers you would use for a different photo. If the photo is not full-body or landmarks are occluded, lower confidence accordingly.",
           },
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: "Detect body landmarks and estimate this person's proportional measurements (shoulder width, chest, waist, hip, torso length, leg length, arm length, height) in centimeters. Provide head-to-body ratio, symmetry score, and confidence.",
+                text: "Detect body landmarks and estimate this person's proportional measurements (shoulder width, chest, waist, hip, torso length, leg length, arm length, height) in centimeters. Provide head-to-body ratio, symmetry score, confidence, normalized landmark coordinates, skin tone, hair color, face shape, and apparent gender.",
               },
               { type: "image_url", image_url: { url: data.imageDataUrl } },
             ],
@@ -281,6 +319,11 @@ export const analyzeBody = createServerFn({ method: "POST" })
       heightRatio: number;
       symmetryScore: number;
       confidence: number;
+      skinTone?: string;
+      hairColor?: string;
+      faceShape?: string;
+      apparentGender?: string;
+      landmarks?: Record<string, { x: number; y: number }>;
       proportions: BodyAnalysis["proportions"];
       reasoning: string;
     };
@@ -316,6 +359,11 @@ export const analyzeBody = createServerFn({ method: "POST" })
       symmetryScore: clamp(raw.symmetryScore),
       shoulderToWaist,
       waistToHip,
+      skinTone: raw.skinTone ?? "Neutral",
+      hairColor: raw.hairColor ?? "Unspecified",
+      faceShape: raw.faceShape ?? "Oval",
+      apparentGender: raw.apparentGender ?? "Unspecified",
+      landmarks: raw.landmarks ?? {},
       proportions: p,
       fit: {
         shoulderFit,
