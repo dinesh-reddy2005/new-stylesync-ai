@@ -10,6 +10,7 @@ import { Upload, Wand2, Camera, Ruler, Sparkles, RefreshCw, Loader2 } from "luci
 import { toast } from "sonner";
 import { analyzeBody, type BodyAnalysis } from "@/lib/tryon.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { logGeneration, attachGenerationImage, markImageFailed } from "@/lib/activity";
 import mensBusiness from "@/assets/outfits/mens-business.jpg";
 import mensSmartCasual from "@/assets/outfits/mens-smart-casual.jpg";
 import mensStreetwear from "@/assets/outfits/mens-streetwear.jpg";
@@ -151,6 +152,20 @@ function TryOn() {
     try {
       const result = await analyzeFn({ data: { imageDataUrl: dataUrl } });
       setAnalysis(result);
+      void logGeneration({
+        generationType: "body_analysis",
+        outfitName: "Body-Fit Analysis",
+        bodyType: (result as unknown as { bodyType?: string }).bodyType,
+        recommendedSize: (result as unknown as { recommendedSize?: string }).recommendedSize,
+        confidenceScore: Math.round(
+          ((result as unknown as { confidence?: number }).confidence ?? 0) > 1
+            ? (result as unknown as { confidence: number }).confidence
+            : ((result as unknown as { confidence?: number }).confidence ?? 0) * 100,
+        ),
+        tags: ["Body Analysis"],
+        metadata: result as unknown as Record<string, unknown>,
+        imageStatus: "none",
+      });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Body analysis failed.");
     } finally {
@@ -171,13 +186,29 @@ function TryOn() {
 
     try {
       const outfitImageDataUrl = await urlToDataUrl(outfit.image);
+      const generationId = await logGeneration({
+        generationType: "tryon",
+        prompt: outfit.prompt,
+        style: outfit.category,
+        outfitName: outfit.name,
+        bodyType: analysis ? (analysis as unknown as { bodyType?: string }).bodyType : undefined,
+        recommendedSize: analysis
+          ? (analysis as unknown as { recommendedSize?: string }).recommendedSize
+          : undefined,
+        tags: outfit.tags,
+        productList: [{ name: outfit.name, category: outfit.category }],
+        metadata: { outfitId: outfit.id, gender: outfit.gender, fit: outfit.fit },
+      });
       await streamTryOn(
         originalDataUrl,
         outfit.prompt,
         outfitImageDataUrl,
         (dataUrl, final) => {
           setPreviewSrc(dataUrl);
-          if (final) setIsFinal(true);
+          if (final) {
+            setIsFinal(true);
+            if (generationId) void attachGenerationImage(generationId, "tryon", dataUrl);
+          }
         },
       );
     } catch (err) {
