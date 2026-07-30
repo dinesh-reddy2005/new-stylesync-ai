@@ -688,6 +688,13 @@ function Recs() {
                   const img = images[i];
                   if (!img?.src) return toast.error("Preview is still rendering.");
                   await downloadImage(img.src, `${o.title.replace(/\s+/g, "-").toLowerCase()}.png`);
+                  const worn = tryons[i];
+                  if (worn?.final) {
+                    await downloadImage(
+                      worn.src,
+                      `${o.title.replace(/\s+/g, "-").toLowerCase()}-try-on.png`,
+                    );
+                  }
                   const id = genIds[i];
                   if (id) await recordDownload(id, 0);
                   toast.success("Download started.");
