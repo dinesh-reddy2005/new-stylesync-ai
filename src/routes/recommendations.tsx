@@ -512,6 +512,51 @@ function Recs() {
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
             <Shirt className="h-4 w-4 text-fuchsia-300" /> Your profile
           </div>
+          <div className="mb-4 rounded-2xl border border-white/10 bg-white/5 p-3">
+            {bodyLoading ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading your body profile…
+              </div>
+            ) : bodyPhoto ? (
+              <div className="flex items-center gap-3">
+                <img
+                  src={bodyPhoto}
+                  alt="Your saved try-on photo"
+                  className="h-14 w-14 rounded-xl object-cover"
+                />
+                <div className="min-w-0 text-xs">
+                  <div className="flex items-center gap-1 font-medium text-foreground">
+                    <User className="h-3 w-3 text-fuchsia-300" /> Photo synced
+                  </div>
+                  <p className="mt-0.5 text-muted-foreground">
+                    {bodyProfile?.bodyType ?? "Body"} ·{" "}
+                    {bodyProfile?.recommendedSize ? `Size ${bodyProfile.recommendedSize}` : "no size yet"}
+                    {bodyProfile?.fitStyle ? ` · ${bodyProfile.fitStyle}` : ""}
+                  </p>
+                  <p className="mt-0.5 text-[10px] text-muted-foreground">
+                    Every look below is rendered on you automatically.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="text-xs text-muted-foreground">
+                <div className="flex items-center gap-1 font-medium text-foreground">
+                  <Camera className="h-3 w-3 text-fuchsia-300" /> No photo yet
+                </div>
+                <p className="mt-1">
+                  Upload one photo on Virtual Try-On — it's reused for every recommendation.
+                </p>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="glass mt-2 h-7 text-xs"
+                  onClick={() => navigate({ to: "/try-on" })}
+                >
+                  Upload photo
+                </Button>
+              </div>
+            )}
+          </div>
           <Select label="Gender" value={profile.gender} options={GENDERS} onChange={(v) => setProfile({ ...profile, gender: v })} />
           <Select label="Body type" value={profile.bodyType} options={BODY_TYPES} onChange={(v) => setProfile({ ...profile, bodyType: v })} />
           <Row>
