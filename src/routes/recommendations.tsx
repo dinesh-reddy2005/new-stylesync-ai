@@ -712,6 +712,10 @@ function buildDetails(o: ScoredOutfit): string {
 function OutfitCard({
   outfit,
   image,
+  tryon,
+  tryonState,
+  hasPhoto,
+  recommendedSize,
   saved,
   favorite,
   onSave,
@@ -722,6 +726,10 @@ function OutfitCard({
 }: {
   outfit: ScoredOutfit;
   image: { src: string; final: boolean } | undefined;
+  tryon: { src: string; final: boolean } | undefined;
+  tryonState: "pending" | "running" | "done" | "failed" | undefined;
+  hasPhoto: boolean;
+  recommendedSize: string | null;
   saved: boolean;
   favorite: boolean;
   onSave: () => void;
@@ -730,20 +738,28 @@ function OutfitCard({
   onTryOn: () => void;
   onDetails: () => void;
 }) {
+  const [view, setView] = useState<"outfit" | "tryon">("outfit");
+  const active = view === "tryon" ? tryon : image;
+  const showTryOnTab = hasPhoto;
   return (
     <Card className="glass group overflow-hidden border-white/10 transition hover:border-fuchsia-500/40 hover:-translate-y-1">
       <div className="relative aspect-[4/5] overflow-hidden bg-white/5">
-        {image ? (
+        {active ? (
           <img
-            src={image.src}
-            alt={outfit.title}
+            src={active.src}
+            alt={view === "tryon" ? `${outfit.title} worn by you` : outfit.title}
             className={`absolute inset-0 h-full w-full object-cover transition-[filter,transform] duration-700 ease-out ${
-              image.final ? "blur-0" : "blur-2xl"
+              active.final ? "blur-0" : "blur-2xl"
             } group-hover:scale-105`}
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Rendering outfit…
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
+            {view === "tryon"
+              ? tryonState === "failed"
+                ? "Try-on unavailable"
+                : "Rendering your try-on…"
+              : "Rendering outfit…"}
           </div>
         )}
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
@@ -753,6 +769,29 @@ function OutfitCard({
         <div className="absolute top-2 right-2 z-10 rounded-full glass px-2 py-0.5 text-[10px] font-medium">
           {outfit.confidence}% match
         </div>
+        {showTryOnTab && (
+          <div className="absolute bottom-2 left-2 z-10 flex gap-1 rounded-full glass p-0.5 text-[10px]">
+            <button
+              onClick={() => setView("outfit")}
+              className={`rounded-full px-2 py-0.5 transition ${
+                view === "outfit" ? "bg-white/15 text-foreground" : "text-muted-foreground"
+              }`}
+            >
+              Outfit
+            </button>
+            <button
+              onClick={() => setView("tryon")}
+              className={`flex items-center gap-1 rounded-full px-2 py-0.5 transition ${
+                view === "tryon" ? "bg-white/15 text-foreground" : "text-muted-foreground"
+              }`}
+            >
+              {(tryonState === "running" || tryonState === "pending") && (
+                <Loader2 className="h-2.5 w-2.5 animate-spin" />
+              )}
+              Try-On
+            </button>
+          </div>
+        )}
         <div className="absolute bottom-2 right-2 z-10 flex gap-1.5 opacity-0 transition group-hover:opacity-100">
           <button
             onClick={onFavorite}
@@ -775,6 +814,12 @@ function OutfitCard({
 
         <div className="mt-2 flex flex-wrap gap-1">
           <BadgePill>{outfit.category}</BadgePill>
+          {recommendedSize && (
+            <BadgePill>
+              <Ruler className="mr-1 inline h-2.5 w-2.5" />
+              Size {recommendedSize}
+            </BadgePill>
+          )}
           <BadgePill>Style: {outfit.scores.stylePref}%</BadgePill>
           <BadgePill>Weather: {outfit.scores.weatherMatch}%</BadgePill>
         </div>
@@ -809,10 +854,11 @@ function OutfitCard({
         <div className="mt-4 flex gap-2">
           <Button
             size="sm"
-            onClick={onTryOn}
+            onClick={() => (showTryOnTab ? setView(view === "tryon" ? "outfit" : "tryon") : onTryOn())}
             className="btn-glow flex-1 bg-gradient-to-r from-fuchsia-500 to-blue-500 text-white hover:opacity-90"
           >
-            <Camera className="mr-1.5 h-3.5 w-3.5" /> Virtual Try-On
+            <Camera className="mr-1.5 h-3.5 w-3.5" />{" "}
+            {showTryOnTab ? (view === "tryon" ? "View Outfit" : "View Try-On") : "Virtual Try-On"}
           </Button>
           <Button size="sm" variant="ghost" className="glass" onClick={onDetails}>
             <Info className="mr-1.5 h-3.5 w-3.5" /> Details
