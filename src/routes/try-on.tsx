@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { createParser } from "eventsource-parser";
 import { flushSync } from "react-dom";
@@ -11,6 +11,13 @@ import { toast } from "sonner";
 import { analyzeBody, type BodyAnalysis } from "@/lib/tryon.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { logGeneration, attachGenerationImage, markImageFailed } from "@/lib/activity";
+import {
+  getBodyProfile,
+  hashDataUrl,
+  loadPhotoDataUrl,
+  saveBodyAnalysis,
+  saveBodyPhoto,
+} from "@/lib/body-profile";
 import mensBusiness from "@/assets/outfits/mens-business.jpg";
 import mensSmartCasual from "@/assets/outfits/mens-smart-casual.jpg";
 import mensStreetwear from "@/assets/outfits/mens-streetwear.jpg";
@@ -132,6 +139,26 @@ function TryOn() {
   const [analyzing, setAnalyzing] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [statusText, setStatusText] = useState<string>("");
+  const photoHashRef = useRef<string | null>(null);
+
+  // Reuse the photo + analysis already stored for this user — no re-upload needed.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const profile = await getBodyProfile();
+      if (cancelled || !profile?.photoPath) return;
+      const dataUrl = await loadPhotoDataUrl(profile.photoPath);
+      if (cancelled || !dataUrl) return;
+      photoHashRef.current = profile.photoHash;
+      setOriginalDataUrl(dataUrl);
+      setPreviewSrc(dataUrl);
+      setIsFinal(true);
+      if (profile.analysis) setAnalysis(profile.analysis);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -141,17 +168,30 @@ function TryOn() {
       return;
     }
     const dataUrl = await fileToDataUrl(f);
+    const hash = await hashDataUrl(dataUrl);
+    photoHashRef.current = hash;
     setOriginalDataUrl(dataUrl);
     setPreviewSrc(dataUrl);
     setIsFinal(true);
     setAnalysis(null);
     setSelected(null);
 
+    // Same photo as before? Reuse the stored analysis instead of paying for it twice.
+    const existing = await getBodyProfile(true);
+    if (existing?.photoHash === hash && existing.analysis) {
+      setAnalysis(existing.analysis);
+      void saveBodyPhoto(dataUrl, hash);
+      toast.success("Reusing your saved body analysis.");
+      return;
+    }
+
     setAnalyzing(true);
     setStatusText("Analyzing body structure…");
     try {
+      void saveBodyPhoto(dataUrl, hash);
       const result = await analyzeFn({ data: { imageDataUrl: dataUrl } });
       setAnalysis(result);
+      void saveBodyAnalysis(result, hash);
       void logGeneration({
         generationType: "body_analysis",
         outfitName: "Body-Fit Analysis",
