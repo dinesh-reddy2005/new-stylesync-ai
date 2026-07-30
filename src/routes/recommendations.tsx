@@ -396,6 +396,9 @@ function Recs() {
     setLoading(true);
     setOutfits([]);
     setImages({});
+    setTryons({});
+    setTryonStatus({});
+    previewRef.current = {};
     try {
       seedRef.current += 1;
       const { outfits: raw } = await generate({
@@ -467,12 +470,28 @@ function Recs() {
           }),
         ),
       );
+
+      // Same photo, every look: render each recommendation on the user in sequence.
+      if (bodyPhoto) {
+        setTryonStatus(Object.fromEntries(top.map((_, i) => [i, "pending" as const])));
+        for (let i = 0; i < top.length; i++) {
+          setTryonStatus((p) => ({ ...p, [i]: "running" }));
+          try {
+            await streamTryOnFor(i, top[i], previewRef.current[i] ?? null, bodyPhoto, token, ids[i]);
+            setTryonStatus((p) => ({ ...p, [i]: "done" }));
+          } catch (e) {
+            console.error("tryon", i, e);
+            setTryonStatus((p) => ({ ...p, [i]: "failed" }));
+            if (ids[i]) void markImageFailed(ids[i]!, "tryon", (e as Error).message);
+          }
+        }
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to generate outfits.");
     } finally {
       setLoading(false);
     }
-  }, [generate, profile, filters, streamImage]);
+  }, [generate, profile, filters, streamImage, streamTryOnFor, bodyPhoto]);
 
   const paletteSummary = useMemo(() => profile.preferredColors.join(", "), [profile.preferredColors]);
 
