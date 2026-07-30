@@ -651,6 +651,10 @@ function Recs() {
                 key={o.signature + seedRef.current}
                 outfit={o}
                 image={images[i]}
+                tryon={tryons[i]}
+                tryonState={tryonStatus[i]}
+                hasPhoto={!!bodyPhoto}
+                recommendedSize={bodyProfile?.recommendedSize ?? null}
                 saved={!!savedIdx[i]}
                 favorite={!!favIdx[i]}
                 onSave={async () => {
