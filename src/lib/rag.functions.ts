@@ -24,11 +24,13 @@ export const ingestPendingKnowledge = createServerFn({ method: "POST" })
 export const searchKnowledge = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
-    z.object({
-      query: z.string().trim().min(2).max(500),
-      k: z.number().int().min(1).max(10).default(4),
-      category: z.string().optional(),
-    }).parse(d),
+    z
+      .object({
+        query: z.string().trim().min(2).max(500),
+        k: z.number().int().min(1).max(10).default(4),
+        category: z.string().optional(),
+      })
+      .parse(d),
   )
   .handler(async ({ data }) => {
     const { retrieveKnowledge } = await import("./rag.server");
