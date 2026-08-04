@@ -15,8 +15,19 @@ export default defineTool({
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async (
     input: { query: string; category?: string; limit?: number },
-    _ctx: ToolContext,
+    ctx: ToolContext,
   ) => {
+    if (!ctx.isAuthenticated()) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: "Not authenticated. Sign in to search the StyleSync fashion knowledge base.",
+          },
+        ],
+        isError: true,
+      };
+    }
     const limit = input.limit ?? 5;
     let results: Awaited<ReturnType<typeof retrieveKnowledge>> = [];
     try {
