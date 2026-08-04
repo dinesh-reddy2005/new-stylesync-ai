@@ -6,6 +6,12 @@ const InputSchema = z.object({
   prompt: z.string().min(1).max(4000),
 });
 
+export type GenerateSource = {
+  title: string;
+  category: string;
+  similarity: number;
+};
+
 const CONFIG_HELP =
   "AI is not configured. Add a LOVABLE_API_KEY (Lovable AI Gateway) or GEMINI_API_KEY (direct Google AI Studio) in your project secrets.";
 
@@ -23,11 +29,37 @@ export const generateAI = createServerFn({ method: "POST" })
     const systemPrompt =
       "You are StyleSync AI, a helpful creative assistant. Respond clearly and concisely using markdown when useful.";
 
+    // RAG: ground the answer in the fashion knowledge base when possible.
+    let ragContext = "";
+    let sources: GenerateSource[] = [];
+    try {
+      const { retrieveKnowledge } = await import("@/lib/rag.server");
+      const hits = await retrieveKnowledge(data.prompt, 4);
+      if (hits.length) {
+        sources = hits.map((h) => ({
+          title: h.title,
+          category: h.category,
+          similarity: h.similarity,
+        }));
+        ragContext =
+          "\n\nRelevant StyleSync knowledge base excerpts. Treat these as authoritative house rules and use them to ground your answer whenever they apply:\n" +
+          hits
+            .map((h, i) => `[${i + 1}] ${h.title} (${h.category}): ${h.content}`)
+            .join("\n");
+      }
+    } catch (e) {
+      console.warn("[generateAI] RAG retrieval skipped:", (e as Error).message);
+    }
+
+    const groundedSystem = systemPrompt + ragContext;
+
     try {
       if (lovableKey) {
-        return await callLovableGateway(lovableKey, systemPrompt, data.prompt);
+        const r = await callLovableGateway(lovableKey, groundedSystem, data.prompt);
+        return { ...r, sources };
       }
-      return await callGeminiDirect(geminiKey!, systemPrompt, data.prompt);
+      const r = await callGeminiDirect(geminiKey!, groundedSystem, data.prompt);
+      return { ...r, sources };
     } catch (err) {
       // Re-throw known, user-friendly errors as-is
       if (err instanceof AIError) throw new Error(err.message);

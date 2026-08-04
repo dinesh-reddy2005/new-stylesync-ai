@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { logGeneration } from "@/lib/activity";
 import {
+  BookOpen,
   Check,
   Copy,
   History,
@@ -17,7 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { generateAI } from "@/lib/generate.functions";
+import { generateAI, type GenerateSource } from "@/lib/generate.functions";
 
 export const Route = createFileRoute("/generate")({
   component: GeneratePage,
@@ -56,6 +57,7 @@ function GeneratePage() {
   const generate = useServerFn(generateAI);
   const [prompt, setPrompt] = useState("");
   const [output, setOutput] = useState("");
+  const [sources, setSources] = useState<GenerateSource[]>([]);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -87,9 +89,11 @@ function GeneratePage() {
     }
     setLoading(true);
     setOutput("");
+    setSources([]);
     try {
       const res = await generate({ data: { prompt: trimmed } });
       setOutput(res.content);
+      setSources(res.sources ?? []);
       void logGeneration({
         generationType: "ai_studio",
         prompt: trimmed,
@@ -127,6 +131,7 @@ function GeneratePage() {
   const onSelectHistory = (item: HistoryItem) => {
     setPrompt(item.prompt);
     setOutput(item.response);
+    setSources([]);
   };
 
   const onRemoveHistory = (id: string) => {
@@ -143,7 +148,7 @@ function GeneratePage() {
       {/* Header */}
       <div className="mb-8 text-center">
         <div className="mx-auto mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-fuchsia-200 backdrop-blur">
-          <Sparkles className="h-3.5 w-3.5" /> Powered by Gemini
+            <Sparkles className="h-3.5 w-3.5" /> Grounded by your fashion knowledge base
         </div>
         <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
           Generate with <span className="text-gradient">StyleSync AI</span>
@@ -267,6 +272,27 @@ function GeneratePage() {
             </div>
           )}
         </div>
+
+        {!loading && sources.length > 0 && (
+          <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+              <BookOpen className="h-3.5 w-3.5 text-fuchsia-300" /> Knowledge base sources
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {sources.map((s) => (
+                <span
+                  key={`${s.title}-${s.category}`}
+                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-foreground/85"
+                >
+                  {s.title}
+                  <span className="text-[10px] text-muted-foreground">
+                    {s.category} · {(s.similarity * 100).toFixed(0)}%
+                  </span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* History */}
